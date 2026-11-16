@@ -1,7 +1,7 @@
 // Single source of truth for the trading plan, the signal states, the app's
 // sections and the build roadmap. Nothing in here is market data.
 
-export const CURRENT_STAGE = 3;
+export const CURRENT_STAGE = 4;
 
 export const STAGES = [
   { n: 1, title: 'Frontend foundation and dashboard', detail: 'App shell, navigation, dashboard layout and the risk calculator.' },
@@ -28,7 +28,7 @@ export const TIMEFRAMES = [
 ];
 
 export const SIGNAL_STATES = [
-  { id: 'offline', label: 'Offline', tone: 'muted', meaning: 'No market data is connected, so nothing is being analysed.' },
+  { id: 'offline', label: 'Offline', tone: 'muted', meaning: 'The signal engine is not running, so nothing is being analysed.' },
   { id: 'no-setup', label: 'No setup', tone: 'muted', meaning: 'Price is not at a 4H level or the timeframes disagree.' },
   { id: 'waiting', label: 'Waiting for confirmation', tone: 'gold', meaning: 'A level is in play and the 15M retest has not confirmed yet.' },
   { id: 'buy', label: 'Buy', tone: 'buy', meaning: 'All required timeframes agree on a long with at least 1:3.' },
