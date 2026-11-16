@@ -4,6 +4,7 @@ import { usd, price, ratio, escapeHtml } from '../lib/format.js';
 import { session } from '../state/session.js';
 import { saveRiskSettings } from '../services/backend.js';
 import { isSupabaseConfigured } from '../config.js';
+import { STAGE_OF } from '../data/plan.js';
 
 const field = (id, label, hint, attrs = '') => `
   <label class="field" for="${id}">
@@ -67,7 +68,7 @@ function limitsPanel({ ready, user, riskSettings, settingsError }) {
     return `
       <section class="panel limits" aria-labelledby="limits-title">${head}
         <ul class="result-errors"><li>${escapeHtml(settingsError)}</li></ul>
-        <p class="panel-note">Run the Stage 2 database script in Supabase, then reload this page.</p>
+        <p class="panel-note">Run the risk limits database script in Supabase, then reload this page.</p>
       </section>`;
   }
   const v = riskSettings || DEFAULT_RISK_SETTINGS;
@@ -84,7 +85,7 @@ function limitsPanel({ ready, user, riskSettings, settingsError }) {
         <button class="button button-primary" type="submit">Save limits</button>
         <span id="limits-status" class="form-status" role="status">${riskSettings ? '' : 'Not saved yet. These are suggested starting values.'}</span>
       </div>
-      <p class="panel-note">Risk per trade and the minimum reward-to-risk are used by the calculator above. The daily limits are stored now and enforced once trades come from MT5 in Stage 6.</p>
+      <p class="panel-note">Risk per trade and the minimum reward-to-risk are used by the calculator above. The daily limits are stored now and enforced once trades come from MT5 in Stage ${STAGE_OF.mt5}.</p>
     </form>`;
 }
 
@@ -109,7 +110,7 @@ export function riskPage() {
             <label><input type="radio" name="direction" value="sell" /><span class="dir dir-sell">Sell</span></label>
           </fieldset>
           <div class="field-row">
-            ${field('balance', 'Account balance (USD)', 'Type it in. It is read from MT5 from Stage 6.')}
+            ${field('balance', 'Account balance (USD)', `Type it in. It is read from MT5 from Stage ${STAGE_OF.mt5}.`)}
             ${field('riskPercent', 'Risk per trade (%)', '', `value="${startRisk}" max="100"`)}
           </div>
           <div class="field-row field-row-3">
@@ -117,7 +118,7 @@ export function riskPage() {
             ${field('stop', 'Stop-loss', '')}
             ${field('target', 'Take-profit', '')}
           </div>
-          <p class="panel-note">Assumes the standard contract of ${XAUUSD_CONTRACT_OZ} oz per 1.00 lot and a 0.01 lot minimum. Spread, commission and swap are not included. These are confirmed against your Exness account in Stage 6.</p>
+          <p class="panel-note">Assumes the standard contract of ${XAUUSD_CONTRACT_OZ} oz per 1.00 lot and a 0.01 lot minimum. Spread, commission and swap are not included. These are confirmed against your Exness account in Stage ${STAGE_OF.mt5}.</p>
         </form>
         <section class="panel calc-result" aria-labelledby="result-title">
           <h2 id="result-title" class="panel-title">Result</h2>
