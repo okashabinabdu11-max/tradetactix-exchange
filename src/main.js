@@ -7,7 +7,7 @@ import { plannedPage, morePage, systemPage } from './pages/other.js';
 import { profilePage } from './pages/profile.js';
 import { journalPage } from './pages/journal.js';
 import { historyPage, analyticsPage, calendarPage, disciplinePage } from './pages/insights.js';
-import { session } from './state/session.js';
+import { session, setSession } from './state/session.js';
 import { initBackend } from './services/backend.js';
 
 const builtPages = {
@@ -40,6 +40,23 @@ function render(routeId, { keepScroll = false } = {}) {
   setActiveNav(root, routeId);
   if (!keepScroll) window.scrollTo(0, 0);
 }
+
+// A confirmation or Google link that failed comes back with the reason in the
+// address. Keep the reason, show it on the Profile page, and tidy the address.
+function readAuthError() {
+  const fromHash = new URLSearchParams(window.location.hash.replace(/^#\/?/, ''));
+  const fromQuery = new URLSearchParams(window.location.search);
+  const text = fromHash.get('error_description') || fromQuery.get('error_description');
+  if (!text) return;
+  const expired = /expired|invalid/i.test(text);
+  setSession({
+    authNotice: expired
+      ? 'That link has expired or was already used. Sign in, or create the account again to get a new link.'
+      : `Sign-in did not finish: ${text}`,
+  }, { silent: true });
+  window.history.replaceState(null, '', `${window.location.pathname}#/profile`);
+}
+readAuthError();
 
 // Create the backend client before routing: after an email confirmation link
 // the sign-in details arrive in the URL hash and must be read first.
