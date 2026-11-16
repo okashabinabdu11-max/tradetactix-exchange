@@ -115,8 +115,11 @@ test('a stricter personal minimum is respected', () => {
 });
 
 test('an old confirmation is stale, not a signal', () => {
-  const r = evaluate({ h4: H4, h1: H1, m15: m15With([...longTail, 4008, 4008, 4008], longShape), now: NOW });
-  assert.notEqual(r.state, 'buy');
+  // Three more candles hold just above the level after the confirmation.
+  const r = evaluate({ h4: H4, h1: H1, m15: m15With([...longTail, 4009, 4010, 4009], (k) => longShape(k) || (k >= 7 ? { l: 4008 } : null)), now: NOW });
+  assert.equal(r.state, 'no-setup');
+  assert.match(r.reason, /entry has passed/);
+  assert.equal(r.entry, undefined);
 });
 
 test('mirror image gives a SELL', () => {
@@ -149,4 +152,13 @@ test('at the weekend the engine is offline rather than reading old candles', () 
   const saturday = Date.UTC(2026, 10, 21, 12, 0, 0);
   const r = evaluate({ h4: H4, h1: H1, m15: m15With(longTail, longShape), now: saturday });
   assert.equal(r.state, 'offline');
+});
+
+test('the entry is the first close back after the retest, taken at the level', () => {
+  const r = evaluate({ h4: H4, h1: H1, m15: m15With(longTail, longShape), now: NOW });
+  assert.ok(Math.abs(r.entry - r.level.price) < 10, 'entry is near the level, not a late chase');
+  // One candle later it is still fresh; the entry does not move to the newer candle.
+  const later = evaluate({ h4: H4, h1: H1, m15: m15With([...longTail, 4009], (k) => longShape(k) || (k >= 7 ? { l: 4008 } : null)), now: NOW });
+  assert.equal(later.state, 'buy');
+  assert.equal(later.entry, 4008);
 });

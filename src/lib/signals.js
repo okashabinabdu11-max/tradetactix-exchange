@@ -114,21 +114,25 @@ function evaluateDirection(dir, { level, levels, liquidity, window, atr4, atr15,
   result.sweep = true;
   result.passed = 1;
 
-  const touch = level.price + s * atr4 * params.levelToleranceAtr;
-  const retested = window.slice(sweepIdx).some((c) => (long ? c.l <= touch : c.h >= touch));
-  if (!retested) return { ...result, note: 'Liquidity is swept; waiting for price to come back to the 4H level.' };
+  // The retest is the latest candle, from the sweep onwards, whose range reaches the level.
+  const band = atr4 * params.levelToleranceAtr;
+  const touches = (c) => c.l <= level.price + band && c.h >= level.price - band;
+  let retestIdx = -1;
+  for (let j = window.length - 1; j >= sweepIdx; j -= 1) {
+    if (touches(window[j])) { retestIdx = j; break; }
+  }
+  if (retestIdx === -1) return { ...result, note: 'Liquidity is swept; waiting for price to come back to the 4H level.' };
   result.retest = true;
   result.passed = 2;
 
-  // Newest candle (within the freshness limit) that closes back in the trade direction.
-  let confirmIdx = -1;
-  for (let j = window.length - 1; j >= Math.max(sweepIdx, window.length - params.freshBars); j -= 1) {
-    const c = window[j];
-    const directional = long ? c.c > c.o : c.c < c.o;
-    const reclaimed = long ? c.c > level.price && c.c > pool.price : c.c < level.price && c.c < pool.price;
-    if (directional && reclaimed) { confirmIdx = j; break; }
-  }
+  // The entry is the first candle, at or after that retest, that closes back in the trade direction.
+  const confirms = (c) => (long ? c.c > c.o && c.c > level.price && c.c > pool.price : c.c < c.o && c.c < level.price && c.c < pool.price);
+  const confirmIdx = window.findIndex((c, j) => j >= retestIdx && confirms(c));
   if (confirmIdx === -1) return { ...result, note: `Level retested; waiting for a 15M candle to close back ${long ? 'above' : 'below'} it.` };
+  if (confirmIdx < window.length - params.freshBars) {
+    const at = new Date(new Date(window[confirmIdx].t).getTime() + INTERVAL_MS['15min']).toISOString().slice(11, 16);
+    return { ...result, expired: true, note: `A ${long ? 'buy' : 'sell'} setup confirmed at ${at} UTC and that entry has passed. Waiting for a new one.` };
+  }
 
   const entry = window[confirmIdx].c;
   const sweepExtreme = window.slice(sweepIdx, confirmIdx + 1).reduce((m, c) => (long ? Math.min(m, c.l) : Math.max(m, c.h)), long ? Infinity : -Infinity);
@@ -219,6 +223,10 @@ export function evaluate({ h4, h1, m15, now = Date.now(), minRewardToRisk = MIN_
 
   if (best.passed === 4) {
     return { ...base, state: best.direction, level: nearest, checks, direction: best.direction, entry: best.entry, stop: best.stop, target: best.target, rr: best.rr, targetBasis: best.targetBasis, confirmedAt: best.confirmedAt, reason: `All checks passed at the 4H ${role} ${nearest.price.toFixed(2)}.` };
+  }
+  if (best.expired) {
+    checks.m15 = { ok: false, text: 'Confirmed earlier; that entry has passed' };
+    return { ...base, state: 'no-setup', level: nearest, checks, direction: best.direction, reason: best.note };
   }
   if (best.passed === 3) {
     // Setup confirmed but the reward is too small: by the plan this is not a trade.
