@@ -5,7 +5,8 @@ import { sessionStatus } from '../lib/sessions.js';
 import { icon } from '../ui/icons.js';
 import { session } from '../state/session.js';
 import { ratio, price } from '../lib/format.js';
-import { getQuote, marketState } from '../services/market.js';
+import { getQuote, marketState, getSignal, signalState } from '../services/market.js';
+import { verdictMarkup } from './signalView.js';
 import { listTrades } from '../services/backend.js';
 import { localDateKey } from '../lib/journal.js';
 
@@ -17,30 +18,12 @@ function databaseStatus() {
 }
 
 // Until a price feed exists there is nothing to analyse, so the engine can only ever be offline.
-const currentState = 'offline';
 
 function verdictPanel() {
-  const state = SIGNAL_STATES.find((s) => s.id === currentState);
   return `
-    <section class="panel verdict" aria-labelledby="verdict-title">
-      <div class="verdict-head">
-        <p class="panel-kicker">Signal engine</p>
-        <h1 id="verdict-title" class="verdict-state tone-${state.tone}">${state.label}</h1>
-        <p class="verdict-meaning">The signal engine has not been built yet, so nothing is being analysed. It arrives in Stage ${STAGE_OF.signals} and will use the live price shown on this page.</p>
-      </div>
-
-      <ol class="ladder" aria-label="Timeframe checks, from highest to lowest">
-        ${TIMEFRAMES.map((t) => `
-          <li class="rung">
-            <span class="rung-tf">${t.tf}</span>
-            <div class="rung-body">
-              <h3>${t.job}${t.optional ? ' <span class="tag">Optional</span>' : ''}</h3>
-              <p>${t.how}</p>
-            </div>
-            <span class="rung-status">No data</span>
-          </li>`).join('')}
-      </ol>
-
+    <section class="panel verdict" aria-labelledby="verdict-state">
+      <h1 class="visually-hidden">Dashboard</h1>
+      <div id="verdict-live" aria-live="polite">${verdictMarkup(signalState())}</div>
       <details class="states">
         <summary>The five states this panel can show</summary>
         <dl>
@@ -176,7 +159,7 @@ export function dashboardPage() {
           ${accountPanel()}
         </div>
       </div>
-      <p class="stage-footnote">Stage ${CURRENT_STAGE} of ${STAGES.length}. No market, broker or signal data is live yet.</p>`,
+      <p class="stage-footnote">Stage ${CURRENT_STAGE} of ${STAGES.length}. Price and signals are live. No broker is connected and no orders can be placed.</p>`,
     mount(root) {
       const live = root.querySelector('#sessions-live');
       const timer = setInterval(() => { live.innerHTML = sessionsMarkup(); }, 30000);
@@ -192,6 +175,14 @@ export function dashboardPage() {
         marketRow.querySelector('.conn-state').textContent = ok ? 'Connected' : 'Not connected';
       };
       refreshPrice();
+      const verdictBox = root.querySelector('#verdict-live');
+      const mine = session.get().user ? session.get().riskSettings?.minRewardToRisk : null;
+      const refreshSignal = async () => {
+        const signal = await getSignal(mine ?? MIN_REWARD_TO_RISK);
+        if (alive) verdictBox.innerHTML = verdictMarkup(signal);
+      };
+      refreshSignal();
+      const signalTimer = setInterval(() => { if (!document.hidden) refreshSignal(); }, 300000);
       const priceTimer = setInterval(() => { if (!document.hidden) refreshPrice(); }, 120000);
       // A real count from the user's own journal; it stays empty when signed out.
       if (session.get().user) {
@@ -203,7 +194,7 @@ export function dashboardPage() {
           cell.classList.remove('empty-value');
         });
       }
-      return () => { alive = false; clearInterval(timer); clearInterval(priceTimer); };
+      return () => { alive = false; clearInterval(timer); clearInterval(priceTimer); clearInterval(signalTimer); };
     },
   };
 }

@@ -6,6 +6,7 @@ import { riskPage } from './pages/risk.js';
 import { plannedPage, morePage, systemPage } from './pages/other.js';
 import { profilePage } from './pages/profile.js';
 import { chartPage } from './pages/chart.js';
+import { signalsPage, analysisPage } from './pages/signals.js';
 import { journalPage } from './pages/journal.js';
 import { historyPage, analyticsPage, calendarPage, disciplinePage } from './pages/insights.js';
 import { session, setSession } from './state/session.js';
@@ -17,6 +18,8 @@ const builtPages = {
   system: systemPage,
   profile: profilePage,
   chart: chartPage,
+  signals: signalsPage,
+  analysis: analysisPage,
   journal: journalPage,
   history: historyPage,
   analytics: analyticsPage,
