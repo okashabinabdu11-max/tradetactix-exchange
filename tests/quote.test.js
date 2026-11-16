@@ -1,0 +1,80 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { normalizeQuote } from '../api/_lib/quote.js';
+import handler from '../api/quote.js';
+
+// The provider's documented /quote shape, with made-up numbers used only here.
+const sample = {
+  symbol: 'XAU/USD', name: 'Gold Spot / US Dollar', datetime: '2026-11-16', timestamp: 1794848400,
+  open: '4100.10', high: '4125.50', low: '4090.00', close: '4112.35', previous_close: '4098.20',
+  change: '14.15', percent_change: '0.3453', is_market_open: true,
+};
+
+test('a good quote is converted to numbers', () => {
+  const r = normalizeQuote(sample, 0);
+  assert.equal(r.ok, true);
+  assert.equal(r.quote.price, 4112.35);
+  assert.equal(r.quote.change, 14.15);
+  assert.equal(r.quote.high, 4125.5);
+  assert.equal(r.quote.marketOpen, true);
+  assert.equal(r.quote.asOf, new Date(1794848400000).toISOString());
+  assert.equal(r.quote.symbol, 'XAUUSD');
+});
+
+test('provider errors never become a price', () => {
+  assert.deepEqual(normalizeQuote({ code: 429, message: 'run out of API credits', status: 'error' }), { ok: false, status: 429, error: 'rate_limited' });
+  assert.equal(normalizeQuote({ code: 401, message: 'bad apikey', status: 'error' }).error, 'key_rejected');
+  assert.equal(normalizeQuote({ code: 404, message: 'symbol not found', status: 'error' }).error, 'provider_error');
+  assert.equal(normalizeQuote({ close: 'n/a' }).ok, false);
+  assert.equal(normalizeQuote({ close: '0' }).ok, false);
+  assert.equal(normalizeQuote(null).ok, false);
+});
+
+test('missing optional fields stay empty rather than zero', () => {
+  const r = normalizeQuote({ close: '4000' });
+  assert.equal(r.quote.change, null);
+  assert.equal(r.quote.marketOpen, null);
+  assert.equal(r.quote.asOf, null);
+});
+
+function fakeRes() {
+  return { headers: {}, code: null, body: null, setHeader(k, v) { this.headers[k] = v; }, status(c) { this.code = c; return this; }, send(b) { this.body = JSON.parse(b); } };
+}
+
+test('handler: no key configured', async () => {
+  delete process.env.TWELVEDATA_API_KEY;
+  const res = fakeRes();
+  await handler({ method: 'GET' }, res);
+  assert.equal(res.code, 503);
+  assert.deepEqual(res.body, { error: 'not_configured' });
+});
+
+test('handler: success is cached and never leaks the key', async () => {
+  process.env.TWELVEDATA_API_KEY = 'test-key-123';
+  const realFetch = globalThis.fetch;
+  let calledUrl = '';
+  globalThis.fetch = async (url) => { calledUrl = String(url); return { json: async () => sample }; };
+  const res = fakeRes();
+  await handler({ method: 'GET' }, res);
+  globalThis.fetch = realFetch;
+  assert.equal(res.code, 200);
+  assert.equal(res.body.price, 4112.35);
+  assert.match(res.headers['Cache-Control'], /s-maxage=120/);
+  assert.ok(calledUrl.includes('symbol=XAU%2FUSD') && calledUrl.includes('apikey=test-key-123'));
+  assert.ok(!JSON.stringify(res.body).includes('test-key-123'));
+});
+
+test('handler: provider failure and wrong method', async () => {
+  process.env.TWELVEDATA_API_KEY = 'test-key-123';
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error('network down test-key-123'); };
+  const res = fakeRes();
+  const realError = console.error; console.error = () => {};
+  await handler({ method: 'GET' }, res);
+  console.error = realError; globalThis.fetch = realFetch;
+  assert.equal(res.code, 502);
+  assert.deepEqual(res.body, { error: 'unreachable' });
+  const res2 = fakeRes();
+  await handler({ method: 'POST' }, res2);
+  assert.equal(res2.code, 405);
+});

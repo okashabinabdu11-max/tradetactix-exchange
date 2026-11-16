@@ -2,6 +2,7 @@ import { SECTIONS, STAGES, CURRENT_STAGE, STAGE_OF, sectionById } from '../data/
 import { appConfig, isSupabaseConfigured } from '../config.js';
 import { icon } from '../ui/icons.js';
 import { session } from '../state/session.js';
+import { marketState } from '../services/market.js';
 
 /** Honest holding page for a section that has not been built yet. */
 export function plannedPage(id) {
@@ -50,7 +51,7 @@ export function systemPage() {
         <section class="panel" aria-labelledby="sys-status">
           <h2 id="sys-status" class="panel-title">Status</h2>
           <ul class="conn-list">
-            ${row('Market data', appConfig.marketDataConnected ? 'Connected' : 'Not connected', appConfig.marketDataConnected)}
+            ${row('Market data', marketState().status === 'ok' ? 'Connected' : marketState().status === 'error' ? 'Not connected' : 'Open the dashboard to check', marketState().status === 'ok')}
             ${row('Exness MT5', appConfig.brokerConnected ? 'Connected' : 'Not connected', appConfig.brokerConnected)}
             ${row('Database', dbText, Boolean(user))}
             ${row('Live trading', appConfig.liveTradingEnabled ? 'On' : 'Locked', false)}

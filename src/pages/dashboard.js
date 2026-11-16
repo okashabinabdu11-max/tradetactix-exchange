@@ -4,7 +4,8 @@ import { MIN_REWARD_TO_RISK } from '../lib/risk.js';
 import { sessionStatus } from '../lib/sessions.js';
 import { icon } from '../ui/icons.js';
 import { session } from '../state/session.js';
-import { ratio } from '../lib/format.js';
+import { ratio, price } from '../lib/format.js';
+import { getQuote, marketState } from '../services/market.js';
 import { listTrades } from '../services/backend.js';
 import { localDateKey } from '../lib/journal.js';
 
@@ -25,7 +26,7 @@ function verdictPanel() {
       <div class="verdict-head">
         <p class="panel-kicker">Signal engine</p>
         <h1 id="verdict-title" class="verdict-state tone-${state.tone}">${state.label}</h1>
-        <p class="verdict-meaning">${state.meaning} Real-time XAUUSD data is added in Stage ${STAGE_OF.data} and the signal engine in Stage ${STAGE_OF.signals}.</p>
+        <p class="verdict-meaning">The signal engine has not been built yet, so nothing is being analysed. It arrives in Stage ${STAGE_OF.signals} and will use the live price shown on this page.</p>
       </div>
 
       <ol class="ladder" aria-label="Timeframe checks, from highest to lowest">
@@ -49,16 +50,33 @@ function verdictPanel() {
     </section>`;
 }
 
+function priceMarkup({ status, quote, message }) {
+  const cell = (label, value, cls = '') => `<div><dt>${label}</dt><dd class="${cls}">${value}</dd></div>`;
+  const empty = '<span class="empty-value">—</span>';
+  if (status !== 'ok') {
+    return `
+      <dl class="quote quote-price">${cell('Price', empty)}${cell('Today', empty)}</dl>
+      <p class="panel-note ${status === 'error' ? 'is-loss' : ''}" id="price-note">${status === 'error' ? message : 'Loading the live price…'}</p>`;
+  }
+  const change = quote.change;
+  const sign = change > 0 ? '+' : change < 0 ? '−' : '';
+  const changeText = change === null ? empty : `${sign}${price(Math.abs(change))}${quote.percentChange === null ? '' : ` <small>(${sign}${Math.abs(quote.percentChange).toFixed(2)}%)</small>`}`;
+  const range = quote.low !== null && quote.high !== null ? `Day range ${price(quote.low)} to ${price(quote.high)}. ` : '';
+  const stamp = new Date(quote.asOf || quote.fetchedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  const closed = quote.marketOpen === false ? 'Market closed: this is the last price. ' : '';
+  return `
+    <dl class="quote quote-price">
+      ${cell('Price', price(quote.price))}
+      ${cell('Today', changeText, change > 0 ? 'is-profit' : change < 0 ? 'is-loss' : '')}
+    </dl>
+    <p class="panel-note" id="price-note">${closed}${range}From ${quote.source} at ${stamp}, refreshed every two minutes. Exness quotes can differ slightly.</p>`;
+}
+
 function pricePanel() {
   return `
     <section class="panel price" aria-labelledby="price-title">
       <h2 id="price-title" class="panel-title">XAUUSD price</h2>
-      <dl class="quote">
-        <div><dt>Bid</dt><dd class="empty-value">—</dd></div>
-        <div><dt>Ask</dt><dd class="empty-value">—</dd></div>
-        <div><dt>Spread</dt><dd class="empty-value">—</dd></div>
-      </dl>
-      <p class="panel-note">No price feed is connected yet. This panel stays empty until a real feed is added in Stage ${STAGE_OF.data}. It never shows sample prices.</p>
+      <div id="price-live" aria-live="polite">${priceMarkup(marketState().status === 'ok' ? marketState() : { status: 'idle' })}</div>
       <a class="text-link" href="#/chart">Open the live TradingView chart</a>
     </section>`;
 }
@@ -103,7 +121,7 @@ function connectionsPanel() {
     <section class="panel" aria-labelledby="conn-title">
       <h2 id="conn-title" class="panel-title">Connections</h2>
       <ul class="conn-list">
-        ${connectionRow('Market data', appConfig.marketDataConnected, 'Connected', 'Not connected')}
+        <li id="conn-market"><span class="dot ${marketState().status === 'ok' ? 'dot-on' : ''}" aria-hidden="true"></span><span>Market data</span><span class="conn-state">${marketState().status === 'ok' ? 'Connected' : 'Checking…'}</span></li>
         ${connectionRow('Exness MT5', appConfig.brokerConnected, 'Connected', 'Not connected')}
         ${connectionRow('Database', databaseStatus().on, databaseStatus().text, databaseStatus().text)}
       </ul>
@@ -162,6 +180,18 @@ export function dashboardPage() {
       const live = root.querySelector('#sessions-live');
       const timer = setInterval(() => { live.innerHTML = sessionsMarkup(); }, 30000);
       let alive = true;
+      const priceBox = root.querySelector('#price-live');
+      const marketRow = root.querySelector('#conn-market');
+      const refreshPrice = async () => {
+        const state = await getQuote();
+        if (!alive) return;
+        priceBox.innerHTML = priceMarkup(state);
+        const ok = state.status === 'ok';
+        marketRow.querySelector('.dot').classList.toggle('dot-on', ok);
+        marketRow.querySelector('.conn-state').textContent = ok ? 'Connected' : 'Not connected';
+      };
+      refreshPrice();
+      const priceTimer = setInterval(() => { if (!document.hidden) refreshPrice(); }, 120000);
       // A real count from the user's own journal; it stays empty when signed out.
       if (session.get().user) {
         listTrades().then((res) => {
@@ -172,7 +202,7 @@ export function dashboardPage() {
           cell.classList.remove('empty-value');
         });
       }
-      return () => { alive = false; clearInterval(timer); };
+      return () => { alive = false; clearInterval(timer); clearInterval(priceTimer); };
     },
   };
 }

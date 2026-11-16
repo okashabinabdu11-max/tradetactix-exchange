@@ -17,9 +17,8 @@ export const appConfig = Object.freeze({
   // it. No environment variable can turn this on.
   liveTradingEnabled: false,
 
-  // No market or broker feed exists yet. These flip only when a real integration
-  // is built and verified; the UI never shows placeholder prices or balances.
-  marketDataConnected: false,
+  // No broker is connected yet. This flips only when a real integration is
+  // built and verified; the UI never shows placeholder balances.
   brokerConnected: false,
 });
 

@@ -11,10 +11,10 @@ An AI-assisted XAUUSD (gold) trading platform built around one plan:
 
 Every trade must offer at least 1:3 reward-to-risk.
 
-## Status: Stage 3 of 10
+## Status: Stage 4 of 10
 
 Built so far: the frontend foundation, sign-in with saved risk limits, and the
-trade journal. **No market data, broker account or signal engine is connected
+trade journal. **No broker account or signal engine is connected
 yet**, and the app shows empty states rather than sample numbers. Live trading
 is switched off in `src/config.js` and cannot be enabled by an environment
 variable.
@@ -28,6 +28,9 @@ What works today:
 - Sign-in with email and password (Supabase Auth).
 - Personal risk limits per user. The minimum reward-to-risk can be raised but
   never set below 1:3, in the app and in the database.
+- Live XAUUSD price on the dashboard through `/api/quote`, a server function
+  that keeps the Twelve Data key off the browser. Set `TWELVEDATA_API_KEY` in
+  the host's environment variables.
 - Chart: live XAUUSD from the TradingView widget, with a view per timeframe of
   the plan (4H line chart, then 1H, 15M and 5M candles).
 - Journal: log, edit, close and delete trades, with the plan checks ticked
@@ -53,6 +56,7 @@ Never commit a secret or service-role key.
 index.html            entry page
 src/main.js           boot and route handling
 src/router.js         hash router
+api/                  server functions (price feed); secrets live in env vars
 src/config.js         app flags (live trading lock lives here)
 src/data/plan.js      trading plan, signal states, sections, roadmap
 src/lib/              pure logic: risk maths, limits, journal statistics, sessions
