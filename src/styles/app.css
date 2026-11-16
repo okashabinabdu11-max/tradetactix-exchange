@@ -501,3 +501,22 @@ a { color: inherit; text-decoration: none; }
 .quote-price { grid-template-columns: 1fr 1fr; }
 .quote-price dd small { font-family: var(--font-body); font-size: 14px; font-weight: 600; }
 .panel-note.is-loss { color: var(--sell); }
+
+/* ---------- Stage 5: signals ---------- */
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.rung.is-ok .rung-status { color: var(--buy); }
+.rung.is-fail .rung-status { color: var(--gold); }
+.rung.is-ok .rung-tf { background: rgba(53, 196, 145, 0.14); color: var(--buy); border-color: rgba(53, 196, 145, 0.45); }
+.signal-levels { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 12px; margin: 16px 0 10px; }
+.signal-levels dt { font-size: 13px; color: var(--muted); }
+.signal-levels dd { font-family: var(--font-display); font-weight: 700; font-size: 30px; line-height: 1.1; }
+.signal-basis { font-size: 14px; color: var(--muted); margin-bottom: 14px; max-width: 60ch; }
+.verdict-foot { padding: 12px 18px 14px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); }
+#signal-view { display: grid; gap: 14px; }
+#signal-view > * { min-width: 0; }
+.rules-list { display: grid; gap: 10px; padding-left: 20px; list-style: decimal; color: var(--muted); }
+.rules-list strong { color: var(--text); }
+@media (min-width: 620px) { .signal-levels { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 960px) { .verdict-foot { padding-left: 26px; padding-right: 26px; } }
+.verdict-state.is-long { font-size: clamp(38px, 10.5vw, 64px); line-height: 1; overflow-wrap: anywhere; }
+.dash > *, .dash-main > * { min-width: 0; }

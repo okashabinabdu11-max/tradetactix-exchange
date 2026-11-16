@@ -5,6 +5,7 @@ import { session } from '../state/session.js';
 import { saveRiskSettings } from '../services/backend.js';
 import { isSupabaseConfigured } from '../config.js';
 import { STAGE_OF } from '../data/plan.js';
+import { signalState } from '../services/market.js';
 
 const field = (id, label, hint, attrs = '') => `
   <label class="field" for="${id}">
@@ -94,6 +95,9 @@ export function riskPage() {
   const saved = state.user ? state.riskSettings : null;
   let minRewardToRisk = saved?.minRewardToRisk ?? MIN_REWARD_TO_RISK;
   const startRisk = saved?.riskPercent ?? DEFAULT_RISK_SETTINGS.riskPercent;
+  const live = signalState();
+  const sig = live && (live.state === 'buy' || live.state === 'sell') ? live : null;
+  const fill = (v) => (sig ? `value="${v.toFixed(2)}"` : '');
 
   return {
     title: 'Risk calculator',
@@ -106,17 +110,17 @@ export function riskPage() {
         <form class="panel calc-form" id="risk-form" novalidate>
           <fieldset class="direction">
             <legend class="field-label">Direction</legend>
-            <label><input type="radio" name="direction" value="buy" checked /><span class="dir dir-buy">Buy</span></label>
-            <label><input type="radio" name="direction" value="sell" /><span class="dir dir-sell">Sell</span></label>
+            <label><input type="radio" name="direction" value="buy" ${sig?.state === 'sell' ? '' : 'checked'} /><span class="dir dir-buy">Buy</span></label>
+            <label><input type="radio" name="direction" value="sell" ${sig?.state === 'sell' ? 'checked' : ''} /><span class="dir dir-sell">Sell</span></label>
           </fieldset>
           <div class="field-row">
             ${field('balance', 'Account balance (USD)', `Type it in. It is read from MT5 from Stage ${STAGE_OF.mt5}.`)}
             ${field('riskPercent', 'Risk per trade (%)', '', `value="${startRisk}" max="100"`)}
           </div>
           <div class="field-row field-row-3">
-            ${field('entry', 'Entry price', '')}
-            ${field('stop', 'Stop-loss', '')}
-            ${field('target', 'Take-profit', '')}
+            ${field('entry', 'Entry price', sig ? 'From the current signal.' : '', sig ? fill(sig.entry) : '')}
+            ${field('stop', 'Stop-loss', '', sig ? fill(sig.stop) : '')}
+            ${field('target', 'Take-profit', '', sig ? fill(sig.target) : '')}
           </div>
           <p class="panel-note">Assumes the standard contract of ${XAUUSD_CONTRACT_OZ} oz per 1.00 lot and a 0.01 lot minimum. Spread, commission and swap are not included. These are confirmed against your Exness account in Stage ${STAGE_OF.mt5}.</p>
         </form>
