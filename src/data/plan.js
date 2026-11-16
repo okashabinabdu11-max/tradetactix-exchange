@@ -7,7 +7,7 @@ export const STAGES = [
   { n: 1, title: 'Frontend foundation and dashboard', detail: 'App shell, navigation, dashboard layout and the risk calculator.' },
   { n: 2, title: 'Secure backend, sign-in and database', detail: 'Sign-in and saved risk limits, with access rules so only you can read them.' },
   { n: 3, title: 'Trade journal, history, analytics, calendar and discipline', detail: 'Log your trades yourself and see statistics, a P&L calendar and how well you kept your rules.' },
-  { n: 4, title: 'Real-time XAUUSD price and TradingView chart', detail: 'A real price feed and the TradingView chart on the dashboard.' },
+  { n: 4, title: 'Real-time XAUUSD price feed', detail: 'A price feed the app itself can read, for the dashboard and the signal engine. The TradingView chart is already on the Chart page.' },
   { n: 5, title: 'Multi-timeframe analysis and signal engine', detail: '4H, 1H, 15M and 5M analysis producing BUY, SELL, waiting and no-setup states.' },
   { n: 6, title: 'Fundamental analysis', detail: 'Economic calendar and news events that affect gold.' },
   { n: 7, title: 'Free month, Pro plan, credits, USDT payments and admin site', detail: 'Plans for other users, payment by USDT with admin approval, and credits you can grant.' },
@@ -37,7 +37,7 @@ export const SIGNAL_STATES = [
 
 export const SECTIONS = [
   { id: 'dashboard', label: 'Dashboard', icon: 'grid', stage: 1 },
-  { id: 'chart', label: 'Chart', icon: 'chart', stage: 4, summary: 'The TradingView XAUUSD chart with your 4H levels and 1H liquidity marked on it.' },
+  { id: 'chart', label: 'Chart', icon: 'chart', stage: 3 },
   { id: 'analysis', label: 'Analysis', icon: 'layers', stage: 5, summary: 'The 4H, 1H, 15M and 5M read of the market, followed in Stage 6 by the economic calendar and news that move gold.' },
   { id: 'signals', label: 'Signals', icon: 'signal', stage: 5, summary: 'BUY and SELL signals with entry, stop-loss and take-profit, plus the waiting and no-setup states. Nothing below 1:3 is shown as a signal.' },
   { id: 'risk', label: 'Risk', icon: 'shield', stage: 1 },

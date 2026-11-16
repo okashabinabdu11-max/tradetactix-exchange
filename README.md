@@ -28,6 +28,8 @@ What works today:
 - Sign-in with email and password (Supabase Auth).
 - Personal risk limits per user. The minimum reward-to-risk can be raised but
   never set below 1:3, in the app and in the database.
+- Chart: live XAUUSD from the TradingView widget, with a view per timeframe of
+  the plan (4H line chart, then 1H, 15M and 5M candles).
 - Journal: log, edit, close and delete trades, with the plan checks ticked
   per trade, notes, summary statistics and a P&L calendar.
 - History (filterable), Analytics (running total, drawdown, breakdowns),

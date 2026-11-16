@@ -480,3 +480,19 @@ a { color: inherit; text-decoration: none; }
 .auth-divider::before, .auth-divider::after { content: ''; flex: 1; border-top: 1px solid var(--line); }
 .auth [hidden] { display: none; }
 .auth .link-button { justify-self: start; padding: 0; text-align: left; }
+
+/* ---------- Chart ---------- */
+.tf-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
+.tf-tab {
+  display: grid; gap: 1px; justify-items: start; padding: 8px 10px; min-height: 48px;
+  background: var(--panel); color: var(--muted); border: 1px solid var(--line); border-radius: var(--r-md);
+  font: inherit; text-align: left; cursor: pointer;
+}
+.tf-tab strong { font-family: var(--font-display); font-weight: 700; font-size: 20px; line-height: 1; color: var(--text); }
+.tf-tab span { font-size: 11.5px; line-height: 1.25; display: none; }
+.tf-tab[aria-selected="true"] { border-color: var(--gold); background: var(--gold-dim); }
+.tf-tab[aria-selected="true"] strong { color: var(--gold); }
+.chart-frame { height: min(70vh, 640px); min-height: 420px; border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; background: var(--base); }
+.chart-frame .tradingview-widget-container, .chart-frame .tradingview-widget-container__widget { width: 100%; height: 100%; }
+.chart-error { padding: 18px; }
+@media (min-width: 620px) { .tf-tab span { display: block; } }

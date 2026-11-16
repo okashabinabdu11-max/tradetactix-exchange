@@ -59,6 +59,7 @@ function pricePanel() {
         <div><dt>Spread</dt><dd class="empty-value">—</dd></div>
       </dl>
       <p class="panel-note">No price feed is connected yet. This panel stays empty until a real feed is added in Stage ${STAGE_OF.data}. It never shows sample prices.</p>
+      <a class="text-link" href="#/chart">Open the live TradingView chart</a>
     </section>`;
 }
 
