@@ -3,6 +3,15 @@ import { appConfig, isSupabaseConfigured } from '../config.js';
 import { MIN_REWARD_TO_RISK } from '../lib/risk.js';
 import { sessionStatus } from '../lib/sessions.js';
 import { icon } from '../ui/icons.js';
+import { session } from '../state/session.js';
+import { ratio } from '../lib/format.js';
+
+function databaseStatus() {
+  if (!isSupabaseConfigured) return { on: false, text: 'Not set up' };
+  const { ready, user } = session.get();
+  if (!ready) return { on: false, text: 'Checking…' };
+  return user ? { on: true, text: 'Signed in' } : { on: false, text: 'Not signed in' };
+}
 
 // Stage 1 has no data feed, so the engine can only ever be offline.
 const currentState = 'offline';
@@ -93,18 +102,25 @@ function connectionsPanel() {
       <ul class="conn-list">
         ${connectionRow('Market data', appConfig.marketDataConnected, 'Connected', 'Not connected')}
         ${connectionRow('Exness MT5', appConfig.brokerConnected, 'Connected', 'Not connected')}
-        ${connectionRow('Database', isSupabaseConfigured, 'Keys set', 'Not set up')}
+        ${connectionRow('Database', databaseStatus().on, databaseStatus().text, databaseStatus().text)}
       </ul>
       <a class="text-link" href="#/system">See build progress</a>
     </section>`;
 }
 
 function riskPanel() {
+  const { user, riskSettings } = session.get();
+  const mine = user ? riskSettings : null;
+  const minimum = ratio(mine?.minRewardToRisk ?? MIN_REWARD_TO_RISK);
+  const limits = mine
+    ? `<li><strong>${mine.riskPercent}% risk per trade</strong><span>At most ${mine.maxTradesPerDay} trades and ${mine.maxDailyLossPercent}% loss per day. Your saved limits.</span></li>`
+    : '';
   return `
     <section class="panel" aria-labelledby="risk-title">
       <h2 id="risk-title" class="panel-title">Risk rules</h2>
       <ul class="rule-list">
-        <li><strong>1:${MIN_REWARD_TO_RISK} minimum</strong><span>A trade must target at least three times what it risks.</span></li>
+        <li><strong>${minimum} minimum</strong><span>A trade must target at least ${mine?.minRewardToRisk ?? MIN_REWARD_TO_RISK} times what it risks.</span></li>
+        ${limits}
         <li><strong>Live trading locked</strong><span>${icon('lock', 14)} No order can be sent from this app.</span></li>
       </ul>
       <a class="button button-quiet" href="#/risk">Open risk calculator</a>
@@ -137,7 +153,7 @@ export function dashboardPage() {
           ${accountPanel()}
         </div>
       </div>
-      <p class="stage-footnote">Stage ${CURRENT_STAGE} of 9: layout and risk tools. No market, account or signal data is live yet.</p>`,
+      <p class="stage-footnote">Stage ${CURRENT_STAGE} of 9: sign-in and saved risk limits. No market, broker or signal data is live yet.</p>`,
     mount(root) {
       const live = root.querySelector('#sessions-live');
       const timer = setInterval(() => { live.innerHTML = sessionsMarkup(); }, 30000);

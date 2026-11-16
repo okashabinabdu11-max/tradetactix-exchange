@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { isGoldMarketOpen, sessionStatus } from '../src/lib/sessions.js';
 import { parseRoute } from '../src/router.js';
-import { SECTIONS, STAGES, TIMEFRAMES, SIGNAL_STATES } from '../src/data/plan.js';
+import { SECTIONS, STAGES, TIMEFRAMES, SIGNAL_STATES, CURRENT_STAGE } from '../src/data/plan.js';
 import { ratio, escapeHtml } from '../src/lib/format.js';
 
 const at = (iso) => new Date(iso);
@@ -50,7 +50,7 @@ test('plan data is consistent', () => {
   assert.deepEqual(SIGNAL_STATES.map((s) => s.id), ['offline', 'no-setup', 'waiting', 'buy', 'sell']);
   for (const s of SECTIONS) {
     assert.ok(STAGES.some((st) => st.n === s.stage), `${s.id} has a valid stage`);
-    if (s.stage > 1) assert.ok(s.summary, `${s.id} explains what is planned`);
+    if (s.stage > CURRENT_STAGE) assert.ok(s.summary, `${s.id} explains what is planned`);
   }
 });
 

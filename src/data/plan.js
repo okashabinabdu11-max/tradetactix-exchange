@@ -1,11 +1,11 @@
 // Single source of truth for the trading plan, the signal states, the app's
 // sections and the build roadmap. Nothing in here is market data.
 
-export const CURRENT_STAGE = 1;
+export const CURRENT_STAGE = 2;
 
 export const STAGES = [
   { n: 1, title: 'Frontend foundation and dashboard', detail: 'App shell, navigation, dashboard layout and the risk calculator.' },
-  { n: 2, title: 'Secure backend, sign-in and database', detail: 'Supabase project, login, database tables and access rules.' },
+  { n: 2, title: 'Secure backend, sign-in and database', detail: 'Supabase project, sign-in, and your risk limits saved with access rules so only you can read them.' },
   { n: 3, title: 'Real-time XAUUSD price and TradingView chart', detail: 'A real price feed and the TradingView chart on the dashboard.' },
   { n: 4, title: 'Multi-timeframe analysis and signal engine', detail: '4H, 1H, 15M and 5M analysis producing BUY, SELL, waiting and no-setup states.' },
   { n: 5, title: 'Fundamental analysis', detail: 'Economic calendar and news events that affect gold.' },
@@ -44,6 +44,7 @@ export const SECTIONS = [
   { id: 'reviews', label: 'AI reviews', icon: 'spark', stage: 8, summary: 'A written review of each closed trade: what followed the plan and what did not.' },
   { id: 'discipline', label: 'Discipline', icon: 'target', stage: 7, summary: 'Tracks whether each trade followed your rules: the 1:3 minimum, risk limit and timeframe checks.' },
   { id: 'account', label: 'Exness MT5', icon: 'link', stage: 6, summary: 'Connect your Exness MT5 account to show balance, open positions and trade history. The connection starts read-only.' },
+  { id: 'profile', label: 'Profile', icon: 'user', stage: 2 },
   { id: 'system', label: 'System', icon: 'gear', stage: 1 },
 ];
 

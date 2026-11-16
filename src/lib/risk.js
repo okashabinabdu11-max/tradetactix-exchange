@@ -28,7 +28,10 @@ export function evaluateTrade({
   balance,
   riskPercent,
   contractSize = XAUUSD_CONTRACT_OZ,
+  minRewardToRisk = MIN_REWARD_TO_RISK,
 }) {
+  // A personal minimum may be stricter than the plan's 1:3, never looser.
+  const minimumRatio = Math.max(MIN_REWARD_TO_RISK, Number(minRewardToRisk) || MIN_REWARD_TO_RISK);
   const errors = [];
 
   if (direction !== 'buy' && direction !== 'sell') errors.push('Choose BUY or SELL.');
@@ -54,10 +57,10 @@ export function evaluateTrade({
   const stopDistance = Math.abs(entry - stop);
   const targetDistance = Math.abs(target - entry);
   const rewardToRisk = targetDistance / stopDistance;
-  const meetsMinimum = rewardToRisk >= MIN_REWARD_TO_RISK - EPSILON;
+  const meetsMinimum = rewardToRisk >= minimumRatio - EPSILON;
 
   const sign = direction === 'buy' ? 1 : -1;
-  const minimumTarget = entry + sign * stopDistance * MIN_REWARD_TO_RISK;
+  const minimumTarget = entry + sign * stopDistance * minimumRatio;
 
   const riskBudget = balance * (riskPercent / 100);
   const riskPerLot = stopDistance * contractSize;
@@ -86,6 +89,7 @@ export function evaluateTrade({
     stopDistance,
     targetDistance,
     rewardToRisk,
+    minimumRatio,
     meetsMinimum,
     minimumTarget,
     riskBudget,

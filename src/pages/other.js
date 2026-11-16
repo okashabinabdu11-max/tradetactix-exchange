@@ -1,6 +1,7 @@
 import { SECTIONS, STAGES, CURRENT_STAGE, sectionById } from '../data/plan.js';
 import { appConfig, isSupabaseConfigured } from '../config.js';
 import { icon } from '../ui/icons.js';
+import { session } from '../state/session.js';
 
 /** Honest holding page for a section that has not been built yet. */
 export function plannedPage(id) {
@@ -29,12 +30,14 @@ export function morePage() {
       <header class="page-head"><h1>All sections</h1></header>
       <nav class="panel more-list" aria-label="All sections">
         ${SECTIONS.map((s) => `
-          <a href="#/${s.id}">${icon(s.icon)}<span>${s.label}</span>${s.stage > 1 ? `<span class="nav-stage">Stage ${s.stage}</span>` : ''}</a>`).join('')}
+          <a href="#/${s.id}">${icon(s.icon)}<span>${s.label}</span>${s.stage > CURRENT_STAGE ? `<span class="nav-stage">Stage ${s.stage}</span>` : ''}</a>`).join('')}
       </nav>`,
   };
 }
 
 export function systemPage() {
+  const { ready, user } = session.get();
+  const dbText = !isSupabaseConfigured ? 'Not set up' : !ready ? 'Checking…' : user ? 'Signed in' : 'Not signed in';
   const row = (label, value, on) => `<li><span class="dot ${on ? 'dot-on' : ''}" aria-hidden="true"></span><span>${label}</span><span class="conn-state">${value}</span></li>`;
   return {
     title: 'System',
@@ -49,7 +52,7 @@ export function systemPage() {
           <ul class="conn-list">
             ${row('Market data', appConfig.marketDataConnected ? 'Connected' : 'Not connected', appConfig.marketDataConnected)}
             ${row('Exness MT5', appConfig.brokerConnected ? 'Connected' : 'Not connected', appConfig.brokerConnected)}
-            ${row('Database', isSupabaseConfigured ? 'Keys set' : 'Not set up', isSupabaseConfigured)}
+            ${row('Database', dbText, Boolean(user))}
             ${row('Live trading', appConfig.liveTradingEnabled ? 'On' : 'Locked', false)}
           </ul>
           <p class="panel-note">Live trading is switched off in the code itself. It can only be enabled in Stage 9, after the Exness MT5 connection works and you authorise it explicitly.</p>
