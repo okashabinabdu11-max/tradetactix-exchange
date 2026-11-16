@@ -60,3 +60,13 @@ test('formatters', () => {
   assert.equal(ratio(10), '1:10');
   assert.equal(escapeHtml('<b>"x"</b>'), '&lt;b&gt;&quot;x&quot;&lt;/b&gt;');
 });
+
+import { CHART_VIEWS, widgetConfig } from '../src/pages/chart.js';
+
+test('chart views follow the plan: 4H line chart, then candles', () => {
+  assert.deepEqual(CHART_VIEWS.map((v) => v.interval), ['240', '60', '15', '5']);
+  assert.equal(widgetConfig(CHART_VIEWS[0]).style, '2'); // line
+  assert.equal(widgetConfig(CHART_VIEWS[2]).style, '1'); // candles
+  assert.equal(widgetConfig(CHART_VIEWS[1]).symbol, 'OANDA:XAUUSD');
+  assert.equal(widgetConfig(CHART_VIEWS[1]).allow_symbol_change, false);
+});
