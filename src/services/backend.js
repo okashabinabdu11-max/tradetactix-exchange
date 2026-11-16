@@ -17,6 +17,8 @@ function friendly(error) {
   if (/email not confirmed/i.test(msg)) return 'Confirm your email first: open the link in the message Supabase sent you.';
   if (/already registered/i.test(msg)) return 'An account with this email already exists. Sign in instead.';
   if (/signups? (are |is )?(not allowed|disabled)/i.test(msg)) return 'New accounts are switched off for this site.';
+  if (/rate limit|too many requests|security purposes/i.test(msg)) return 'Too many attempts. Wait a few minutes, then try again.';
+  if (/error sending confirmation/i.test(msg)) return 'The confirmation email could not be sent. Try Continue with Google, or try again later.';
   if (/failed to fetch|networkerror|load failed/i.test(msg)) return 'Could not reach the database. Check your connection and try again.';
   return msg;
 }
@@ -86,8 +88,48 @@ export async function signUp(email, password) {
     options: { emailRedirectTo: window.location.origin },
   });
   if (error) return { ok: false, message: friendly(error) };
+  // For an email that is already registered Supabase reports success with an
+  // empty identity list instead of an error, so say so plainly.
+  if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+    return { ok: false, message: 'An account with this email already exists. Sign in instead, or use Continue with Google.' };
+  }
   // With email confirmation on, there is a user but no session yet.
   return { ok: true, needsConfirmation: !data.session };
+}
+
+export async function resendConfirmation(email) {
+  if (!client) return { ok: false, message: NOT_CONFIGURED };
+  const { error } = await client.auth.resend({
+    type: 'signup',
+    email,
+    options: { emailRedirectTo: window.location.origin },
+  });
+  return error ? { ok: false, message: friendly(error) } : { ok: true };
+}
+
+/** Asks the project which sign-in methods are switched on. */
+async function googleEnabled() {
+  try {
+    const res = await fetch(`${appConfig.supabaseUrl}/auth/v1/settings`, { headers: { apikey: appConfig.supabaseAnonKey } });
+    if (!res.ok) return null;
+    const settings = await res.json();
+    return Boolean(settings?.external?.google);
+  } catch {
+    return null; // could not check; let the sign-in attempt speak for itself
+  }
+}
+
+/** Leaves the site for Google and comes back signed in. */
+export async function signInWithGoogle() {
+  if (!client) return { ok: false, message: NOT_CONFIGURED };
+  if ((await googleEnabled()) === false) {
+    return { ok: false, message: 'Google sign-in is not switched on for this site yet. Use email and password for now.' };
+  }
+  const { error } = await client.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin },
+  });
+  return error ? { ok: false, message: friendly(error) } : { ok: true, redirecting: true };
 }
 
 export async function signOut() {

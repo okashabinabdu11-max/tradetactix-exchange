@@ -6,6 +6,7 @@ const state = {
   user: null, // { id, email } or null
   riskSettings: null, // saved limits, or null when none are saved
   settingsError: null, // why the limits could not be loaded, if they could not
+  authNotice: null, // a sign-in problem reported by a confirmation or Google link
 };
 
 const listeners = new Set();

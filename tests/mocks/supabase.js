@@ -81,10 +81,19 @@ export function createClient(url, key) {
         return { data: { user: current.user, session: current }, error: null };
       },
       async signUp({ email, password }) {
-        if (accounts.has(email)) return { data: { user: null, session: null }, error: { message: 'User already registered' } };
+        // Like the real service: an existing email gets a look-alike success with no identities.
+        if (accounts.has(email)) return { data: { user: { id: 'hidden', email, identities: [] }, session: null }, error: null };
         const id = `user-${accounts.size + 1}`;
         accounts.set(email, { id, password });
-        return { data: { user: { id, email }, session: null }, error: null }; // confirmation required
+        return { data: { user: { id, email, identities: [{ provider: 'email' }] }, session: null }, error: null }; // confirmation required
+      },
+      async resend({ email }) {
+        window.__resent = email;
+        return { data: {}, error: null };
+      },
+      async signInWithOAuth({ provider, options }) {
+        window.__oauth = { provider, redirectTo: options?.redirectTo };
+        return { data: { provider, url: 'https://accounts.google.com/' }, error: null };
       },
       async signOut() {
         current = null;
