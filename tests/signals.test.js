@@ -1,17 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { atr, pivots, closedOnly, findLevels, findLiquidity, evaluate, INTERVAL_MS } from '../src/lib/signals.js';
+import { atr, pivots, closedOnly, tradingOnly, findLevels, findLiquidity, evaluate, INTERVAL_MS } from '../src/lib/signals.js';
 
 // Synthetic candles for testing the rules only. They are never shown in the app.
 const NOW = Date.UTC(2026, 10, 18, 12, 0, 0); // a Wednesday
 const candle = (t, o, h, l, c) => ({ t: new Date(t).toISOString(), o, h, l, c });
+/** Start times of the last `count` candles before NOW, skipping hours when gold is closed. */
+function tradingTimes(count, intervalMs) {
+  const times = [];
+  for (let t = NOW - intervalMs; times.length < count; t -= intervalMs) {
+    if (tradingOnly([candle(t, 1, 1, 1, 1)], intervalMs).length) times.unshift(t);
+  }
+  return times;
+}
 /** Builds candles ending just before NOW from a list of closes (range +-1 around the body). */
 function series(closes, intervalMs, shape = () => ({})) {
-  const start = NOW - closes.length * intervalMs;
+  const times = tradingTimes(closes.length, intervalMs);
   return closes.map((c, i) => {
     const o = i === 0 ? c : closes[i - 1];
     const extra = shape(i, closes.length) || {};
-    return candle(start + i * intervalMs, extra.o ?? o, extra.h ?? Math.max(o, c) + 1, extra.l ?? Math.min(o, c) - 1, extra.c ?? c);
+    return candle(times[i], extra.o ?? o, extra.h ?? Math.max(o, c) + 1, extra.l ?? Math.min(o, c) - 1, extra.c ?? c);
   });
 }
 // A 4H line that turns up at ~4000 twice and down at ~4100 twice, ending near 4000.
@@ -122,4 +130,23 @@ test('mirror image gives a SELL', () => {
 test('missing or stale data is OFFLINE, never a guess', () => {
   assert.equal(evaluate({ h4: [], h1: [], m15: [], now: NOW }).state, 'offline');
   assert.equal(evaluate({ h4: H4, h1: H1, m15: m15With(longTail, longShape), now: NOW + 3 * 24 * 3600e3 }).state, 'offline');
+});
+
+test('weekend placeholder candles are dropped, session-edge candles are kept', () => {
+  const at = (iso) => candle(Date.parse(iso), 1, 1, 1, 1);
+  const list = [
+    at('2026-11-13T20:00:00Z'), // Friday 15:00 New York: trading
+    at('2026-11-14T00:00:00Z'), // Friday 19:00 New York: closed
+    at('2026-11-14T12:00:00Z'), // Saturday
+    at('2026-11-15T16:00:00Z'), // Sunday 11:00 to 15:00 New York: closed
+    at('2026-11-15T20:00:00Z'), // Sunday 15:00 to 19:00 New York: covers the open
+    at('2026-11-16T00:00:00Z'), // Sunday evening New York: trading
+  ];
+  assert.deepEqual(tradingOnly(list, INTERVAL_MS['4h']).map((c) => c.t.slice(0, 13)), ['2026-11-13T20', '2026-11-15T20', '2026-11-16T00']);
+});
+
+test('at the weekend the engine is offline rather than reading old candles', () => {
+  const saturday = Date.UTC(2026, 10, 21, 12, 0, 0);
+  const r = evaluate({ h4: H4, h1: H1, m15: m15With(longTail, longShape), now: saturday });
+  assert.equal(r.state, 'offline');
 });

@@ -11,6 +11,7 @@
 // whole engine is unit tested. It reads prices; it never places a trade.
 
 import { MIN_REWARD_TO_RISK } from './risk.js';
+import { isGoldMarketOpen } from './sessions.js';
 
 export const PARAMS = Object.freeze({
   pivotSpan: 2, // bars on each side that a swing point must beat
@@ -27,6 +28,17 @@ export const INTERVAL_MS = { '4h': 4 * 3600e3, '1h': 3600e3, '15min': 900e3 };
 /** Drops the candle that is still forming. */
 export function closedOnly(candles, intervalMs, now = Date.now()) {
   return candles.filter((c) => new Date(c.t).getTime() + intervalMs <= now);
+}
+
+/**
+ * Drops candles from hours when gold does not trade. The data provider fills
+ * weekends with flat placeholder candles, which would distort levels and ATR.
+ */
+export function tradingOnly(candles, intervalMs) {
+  return candles.filter((c) => {
+    const start = new Date(c.t).getTime();
+    return isGoldMarketOpen(new Date(start)) || isGoldMarketOpen(new Date(start + intervalMs - 60e3));
+  });
 }
 
 export function atr(candles, period = 14) {
@@ -153,9 +165,9 @@ function evaluateDirection(dir, { level, levels, liquidity, window, atr4, atr15,
  */
 export function evaluate({ h4, h1, m15, now = Date.now(), minRewardToRisk = MIN_REWARD_TO_RISK, params = PARAMS }) {
   const minRR = Math.max(MIN_REWARD_TO_RISK, Number(minRewardToRisk) || MIN_REWARD_TO_RISK);
-  const c4 = closedOnly(h4 || [], INTERVAL_MS['4h'], now);
-  const c1 = closedOnly(h1 || [], INTERVAL_MS['1h'], now);
-  const c15 = closedOnly(m15 || [], INTERVAL_MS['15min'], now);
+  const c4 = tradingOnly(closedOnly(h4 || [], INTERVAL_MS['4h'], now), INTERVAL_MS['4h']);
+  const c1 = tradingOnly(closedOnly(h1 || [], INTERVAL_MS['1h'], now), INTERVAL_MS['1h']);
+  const c15 = tradingOnly(closedOnly(m15 || [], INTERVAL_MS['15min'], now), INTERVAL_MS['15min']);
   if (c4.length < 30 || c1.length < 20 || c15.length < params.lookback15 + 14) {
     return { state: 'offline', reason: 'Not enough candle history to analyse yet.', checks: null };
   }
