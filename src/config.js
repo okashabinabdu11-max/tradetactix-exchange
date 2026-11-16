@@ -6,15 +6,18 @@ export const appConfig = Object.freeze({
   appName: 'TradeTactix AI',
   instrument: 'XAUUSD',
   mode: env.MODE || 'development',
-  supabaseUrl: env.VITE_SUPABASE_URL || '',
-  supabaseAnonKey: env.VITE_SUPABASE_ANON_KEY || '',
+  // The project URL and the publishable key are public by design: they only
+  // identify the project. Row-level security in the database decides what a
+  // signed-in user may read or write. Secret keys never belong in this file.
+  supabaseUrl: env.VITE_SUPABASE_URL || 'https://htycjrdyoysnudasqdop.supabase.co',
+  supabaseAnonKey: env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_SEn6hnam_lE5yzk0mZQrYg_eVrh42Fn',
 
   // Live order execution is switched off in code. It must stay off until the
   // Exness MT5 integration exists and the account owner explicitly authorises
   // it. No environment variable can turn this on.
   liveTradingEnabled: false,
 
-  // Nothing is connected in Stage 1. These flip only when a real integration
+  // No market or broker feed exists yet. These flip only when a real integration
   // is built and verified; the UI never shows placeholder prices or balances.
   marketDataConnected: false,
   brokerConnected: false,

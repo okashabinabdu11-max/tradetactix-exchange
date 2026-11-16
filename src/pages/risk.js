@@ -1,5 +1,9 @@
 import { evaluateTrade, MIN_REWARD_TO_RISK, XAUUSD_CONTRACT_OZ } from '../lib/risk.js';
+import { DEFAULT_RISK_SETTINGS, validateRiskSettings } from '../lib/riskSettings.js';
 import { usd, price, ratio, escapeHtml } from '../lib/format.js';
+import { session } from '../state/session.js';
+import { saveRiskSettings } from '../services/backend.js';
+import { isSupabaseConfigured } from '../config.js';
 
 const field = (id, label, hint, attrs = '') => `
   <label class="field" for="${id}">
@@ -10,19 +14,20 @@ const field = (id, label, hint, attrs = '') => `
 
 function resultMarkup(r) {
   if (!r) {
-    return '<p class="result-empty">Fill in the trade to see the position size and whether it meets the 1:3 rule.</p>';
+    return '<p class="result-empty">Fill in the trade to see the position size and whether it meets your minimum reward-to-risk.</p>';
   }
   if (!r.ok) {
     return `<ul class="result-errors">${r.errors.map((e) => `<li>${escapeHtml(e)}</li>`).join('')}</ul>`;
   }
+  const minimum = ratio(r.minimumRatio);
   const verdictClass = r.allowed ? 'pass' : 'fail';
   const verdictText = r.allowed
     ? 'Meets the plan'
     : !r.meetsMinimum
-      ? `Below the 1:${MIN_REWARD_TO_RISK} minimum`
+      ? `Below the ${minimum} minimum`
       : 'Stop too wide for this risk';
   const fix = !r.meetsMinimum
-    ? `<p class="result-fix">Move the take-profit to <strong>${price(r.minimumTarget)}</strong> or beyond to reach 1:${MIN_REWARD_TO_RISK}.</p>`
+    ? `<p class="result-fix">Move the take-profit to <strong>${price(r.minimumTarget)}</strong> or beyond to reach ${minimum}.</p>`
     : '';
   const size = r.belowMinLot
     ? `<div><dt>Position size</dt><dd>None</dd><dd class="sub">0.01 lot would risk ${usd(r.minLotRisk)} (${r.minLotRiskPercent.toFixed(2)}%)</dd></div>`
@@ -43,13 +48,58 @@ function resultMarkup(r) {
     ${r.warnings.length ? `<ul class="result-warnings">${r.warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join('')}</ul>` : ''}`;
 }
 
+function limitsPanel({ ready, user, riskSettings, settingsError }) {
+  const head = '<h2 id="limits-title" class="panel-title">Your risk limits</h2>';
+  if (!isSupabaseConfigured) {
+    return `<section class="panel limits" aria-labelledby="limits-title">${head}<p class="result-empty">The database is not set up, so limits cannot be saved.</p></section>`;
+  }
+  if (!ready) {
+    return `<section class="panel limits" aria-labelledby="limits-title">${head}<p class="result-empty">Checking sign-in…</p></section>`;
+  }
+  if (!user) {
+    return `
+      <section class="panel limits" aria-labelledby="limits-title">${head}
+        <p class="result-empty">Sign in to save your own risk per trade, minimum reward-to-risk and daily limits.</p>
+        <a class="button button-quiet" href="#/profile">Sign in</a>
+      </section>`;
+  }
+  if (settingsError) {
+    return `
+      <section class="panel limits" aria-labelledby="limits-title">${head}
+        <ul class="result-errors"><li>${escapeHtml(settingsError)}</li></ul>
+        <p class="panel-note">Run the Stage 2 database script in Supabase, then reload this page.</p>
+      </section>`;
+  }
+  const v = riskSettings || DEFAULT_RISK_SETTINGS;
+  return `
+    <form class="panel limits" id="limits-form" aria-labelledby="limits-title" novalidate>
+      ${head}
+      <div class="field-row field-row-4">
+        ${field('riskPercentLimit', 'Risk per trade (%)', '', `value="${v.riskPercent}" max="100"`)}
+        ${field('minRewardToRisk', 'Minimum reward-to-risk (1:x)', `Cannot go below ${MIN_REWARD_TO_RISK}.`, `value="${v.minRewardToRisk}" min="${MIN_REWARD_TO_RISK}"`)}
+        ${field('maxTradesPerDay', 'Trades per day', '', `value="${v.maxTradesPerDay}" step="1" inputmode="numeric"`)}
+        ${field('maxDailyLossPercent', 'Daily loss limit (%)', '', `value="${v.maxDailyLossPercent}" max="100"`)}
+      </div>
+      <div class="form-actions">
+        <button class="button button-primary" type="submit">Save limits</button>
+        <span id="limits-status" class="form-status" role="status">${riskSettings ? '' : 'Not saved yet. These are suggested starting values.'}</span>
+      </div>
+      <p class="panel-note">Risk per trade and the minimum reward-to-risk are used by the calculator above. The daily limits are stored now and enforced once trades come from MT5 in Stage 6.</p>
+    </form>`;
+}
+
 export function riskPage() {
+  const state = session.get();
+  const saved = state.user ? state.riskSettings : null;
+  let minRewardToRisk = saved?.minRewardToRisk ?? MIN_REWARD_TO_RISK;
+  const startRisk = saved?.riskPercent ?? DEFAULT_RISK_SETTINGS.riskPercent;
+
   return {
     title: 'Risk calculator',
     html: `
       <header class="page-head">
         <h1>Risk calculator</h1>
-        <p>Size an XAUUSD position from your own numbers and check it against the 1:${MIN_REWARD_TO_RISK} rule. Nothing here is sent anywhere or saved.</p>
+        <p>Size an XAUUSD position from your own numbers and check it against your <span id="min-ratio-text">${ratio(minRewardToRisk)}</span> minimum. The trade you type here is not saved or sent anywhere.</p>
       </header>
       <div class="calc">
         <form class="panel calc-form" id="risk-form" novalidate>
@@ -60,7 +110,7 @@ export function riskPage() {
           </fieldset>
           <div class="field-row">
             ${field('balance', 'Account balance (USD)', 'Type it in. It is read from MT5 from Stage 6.')}
-            ${field('riskPercent', 'Risk per trade (%)', '', 'value="1" max="100"')}
+            ${field('riskPercent', 'Risk per trade (%)', '', `value="${startRisk}" max="100"`)}
           </div>
           <div class="field-row field-row-3">
             ${field('entry', 'Entry price', '')}
@@ -73,7 +123,8 @@ export function riskPage() {
           <h2 id="result-title" class="panel-title">Result</h2>
           <div id="risk-result" aria-live="polite">${resultMarkup(null)}</div>
         </section>
-      </div>`,
+      </div>
+      ${limitsPanel(state)}`,
     mount(root) {
       const form = root.querySelector('#risk-form');
       const out = root.querySelector('#risk-result');
@@ -92,10 +143,43 @@ export function riskPage() {
           entry: num('entry'),
           stop: num('stop'),
           target: num('target'),
+          minRewardToRisk,
         }));
       };
       form.addEventListener('input', update);
       form.addEventListener('submit', (e) => e.preventDefault());
+
+      const limits = root.querySelector('#limits-form');
+      if (limits) {
+        const status = limits.querySelector('#limits-status');
+        const button = limits.querySelector('button[type="submit"]');
+        const setStatus = (text, tone = '') => {
+          status.textContent = text;
+          status.className = `form-status ${tone}`;
+        };
+        limits.addEventListener('input', () => setStatus('Unsaved changes'));
+        limits.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const check = validateRiskSettings({
+            riskPercent: limits.elements.riskPercentLimit.value,
+            minRewardToRisk: limits.elements.minRewardToRisk.value,
+            maxTradesPerDay: limits.elements.maxTradesPerDay.value,
+            maxDailyLossPercent: limits.elements.maxDailyLossPercent.value,
+          });
+          if (!check.ok) { setStatus(check.errors[0], 'is-error'); return; }
+          button.disabled = true;
+          setStatus('Saving…');
+          const res = await saveRiskSettings(check.values);
+          button.disabled = false;
+          if (!res.ok) { setStatus(`Not saved. ${res.message}`, 'is-error'); return; }
+          setStatus('Limits saved', 'is-ok');
+          // Apply the saved limits to the calculator straight away.
+          minRewardToRisk = res.values.minRewardToRisk;
+          form.elements.riskPercent.value = res.values.riskPercent;
+          root.querySelector('#min-ratio-text').textContent = ratio(minRewardToRisk);
+          update();
+        });
+      }
       return () => form.removeEventListener('input', update);
     },
   };

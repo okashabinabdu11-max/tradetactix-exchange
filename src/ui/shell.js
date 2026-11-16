@@ -1,4 +1,4 @@
-import { SECTIONS } from '../data/plan.js';
+import { SECTIONS, CURRENT_STAGE } from '../data/plan.js';
 import { appConfig } from '../config.js';
 import { icon } from './icons.js';
 
@@ -11,7 +11,7 @@ const brand = `
   </a>`;
 
 function navLink(section) {
-  const planned = section.stage > 1 ? `<span class="nav-stage">Stage ${section.stage}</span>` : '';
+  const planned = section.stage > CURRENT_STAGE ? `<span class="nav-stage">Stage ${section.stage}</span>` : '';
   return `<a class="nav-link" href="#/${section.id}" data-nav="${section.id}">${icon(section.icon)}<span>${section.label}</span>${planned}</a>`;
 }
 
