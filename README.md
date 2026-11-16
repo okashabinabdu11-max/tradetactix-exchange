@@ -11,7 +11,7 @@ An AI-assisted XAUUSD (gold) trading platform built around one plan:
 
 Every trade must offer at least 1:3 reward-to-risk.
 
-## Status: Stage 5 of 10
+## Status: Stage 6 of 10
 
 Built so far: the frontend foundation, sign-in with saved risk limits, and the
 trade journal. **No broker account is connected yet**, and the app shows empty states rather than sample numbers. Live trading
@@ -33,6 +33,8 @@ What works today:
 - Signal engine (`src/lib/signals.js`): reads 4H levels, 1H liquidity and the
   15M sweep, retest and confirmation, and reports BUY, SELL, waiting, no setup
   or offline. A signal needs at least 1:3. It never places a trade.
+- Fundamentals on the Analysis page: US economic calendar and gold news, from
+  TradingView widgets. The signal engine does not read them.
 - Chart: live XAUUSD from the TradingView widget, with a view per timeframe of
   the plan (4H line chart, then 1H, 15M and 5M candles).
 - Journal: log, edit, close and delete trades, with the plan checks ticked

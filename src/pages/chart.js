@@ -2,7 +2,8 @@
 // The chart and its prices are drawn by TradingView inside its own frame;
 // this app does not read those prices.
 
-const WIDGET_SRC = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+import { loadTradingViewWidget } from '../ui/tvWidget.js';
+
 export const CHART_SYMBOL = 'OANDA:XAUUSD';
 
 // One view per step of the plan. 4H is a line chart because that is how the
@@ -35,18 +36,7 @@ export function widgetConfig(view) {
 
 let currentView = '4h'; // remembered while the app stays open
 
-function loadWidget(host, view) {
-  host.innerHTML = '<div class="tradingview-widget-container__widget"></div>';
-  const script = document.createElement('script');
-  script.type = 'text/javascript';
-  script.src = WIDGET_SRC;
-  script.async = true;
-  script.textContent = JSON.stringify(widgetConfig(view));
-  script.addEventListener('error', () => {
-    host.innerHTML = '<p class="result-errors chart-error">The TradingView chart could not load. Check your connection, or whether a content blocker is stopping tradingview.com.</p>';
-  });
-  host.appendChild(script);
-}
+const loadWidget = (host, view) => loadTradingViewWidget(host, 'embed-widget-advanced-chart.js', widgetConfig(view), 'The TradingView chart could not load.');
 
 export function chartPage() {
   const tabs = CHART_VIEWS.map((v) => `

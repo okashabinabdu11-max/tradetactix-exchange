@@ -70,3 +70,12 @@ test('chart views follow the plan: 4H line chart, then candles', () => {
   assert.equal(widgetConfig(CHART_VIEWS[1]).symbol, 'OANDA:XAUUSD');
   assert.equal(widgetConfig(CHART_VIEWS[1]).allow_symbol_change, false);
 });
+
+import { CALENDAR_CONFIG, NEWS_CONFIG } from '../src/pages/signals.js';
+
+test('fundamentals widgets are scoped to gold: US events, XAUUSD news', () => {
+  assert.equal(CALENDAR_CONFIG.countryFilter, 'us');
+  assert.equal(CALENDAR_CONFIG.importanceFilter, '0,1');
+  assert.equal(NEWS_CONFIG.symbol, 'OANDA:XAUUSD');
+  assert.equal(NEWS_CONFIG.feedMode, 'symbol');
+});
