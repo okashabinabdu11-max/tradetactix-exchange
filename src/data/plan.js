@@ -1,7 +1,7 @@
 // Single source of truth for the trading plan, the signal states, the app's
 // sections and the build roadmap. Nothing in here is market data.
 
-export const CURRENT_STAGE = 5;
+export const CURRENT_STAGE = 6;
 
 export const STAGES = [
   { n: 1, title: 'Frontend foundation and dashboard', detail: 'App shell, navigation, dashboard layout and the risk calculator.' },
