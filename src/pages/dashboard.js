@@ -62,14 +62,15 @@ function priceMarkup({ status, quote, message }) {
   const sign = change > 0 ? '+' : change < 0 ? '−' : '';
   const changeText = change === null ? empty : `${sign}${price(Math.abs(change))}${quote.percentChange === null ? '' : ` <small>(${sign}${Math.abs(quote.percentChange).toFixed(2)}%)</small>`}`;
   const range = quote.low !== null && quote.high !== null ? `Day range ${price(quote.low)} to ${price(quote.high)}. ` : '';
-  const stamp = new Date(quote.asOf || quote.fetchedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  // The provider's own timestamp marks the start of the trading day, so show when we fetched instead.
+  const stamp = new Date(quote.fetchedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   const closed = quote.marketOpen === false ? 'Market closed: this is the last price. ' : '';
   return `
     <dl class="quote quote-price">
       ${cell('Price', price(quote.price))}
       ${cell('Today', changeText, change > 0 ? 'is-profit' : change < 0 ? 'is-loss' : '')}
     </dl>
-    <p class="panel-note" id="price-note">${closed}${range}From ${quote.source} at ${stamp}, refreshed every two minutes. Exness quotes can differ slightly.</p>`;
+    <p class="panel-note" id="price-note">${closed}${range}From ${quote.source}, checked at ${stamp} and refreshed every two minutes. Exness quotes can differ slightly.</p>`;
 }
 
 function pricePanel() {
