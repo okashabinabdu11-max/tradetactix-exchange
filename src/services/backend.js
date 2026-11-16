@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import { appConfig, isSupabaseConfigured } from '../config.js';
 import { session, setSession } from '../state/session.js';
 import { fromRow, toRow } from '../lib/riskSettings.js';
+import { fromTradeRow, toTradeRow } from '../lib/journal.js';
 
 let client = null;
 
@@ -20,10 +21,13 @@ function friendly(error) {
   return msg;
 }
 
+const isMissingTable = (error) =>
+  error?.code === '42P01' || error?.code === 'PGRST205' || /does not exist|could not find the table/i.test(error?.message || '');
+
 async function fetchRiskSettings() {
   const { data, error } = await client.from('risk_settings').select('*').maybeSingle();
   if (error) {
-    const missing = error.code === '42P01' || error.code === 'PGRST205' || /does not exist|could not find the table/i.test(error.message || '');
+    const missing = isMissingTable(error);
     return {
       riskSettings: null,
       settingsError: missing
@@ -105,4 +109,41 @@ export async function saveRiskSettings(values) {
   const saved = fromRow(data);
   setSession({ riskSettings: saved, settingsError: null }, { silent: true });
   return { ok: true, values: saved };
+}
+
+// ---------- Journal ----------
+
+const tradeError = (error) => ({
+  ok: false,
+  missingTable: isMissingTable(error),
+  message: isMissingTable(error)
+    ? 'The trades table has not been created in the database yet.'
+    : friendly(error),
+});
+
+export async function listTrades() {
+  if (!client) return { ok: false, message: NOT_CONFIGURED };
+  const { data, error } = await client.from('trades').select('*').order('opened_at', { ascending: false });
+  if (error) return tradeError(error);
+  return { ok: true, trades: (data || []).map(fromTradeRow) };
+}
+
+/** Creates a trade, or updates the one with `id`. */
+export async function saveTrade(values, id = null) {
+  const { user } = session.get();
+  if (!client) return { ok: false, message: NOT_CONFIGURED };
+  if (!user) return { ok: false, message: 'Sign in to save trades.' };
+  const row = toTradeRow(values);
+  const query = id
+    ? client.from('trades').update(row).eq('id', id)
+    : client.from('trades').insert({ ...row, user_id: user.id });
+  const { data, error } = await query.select().single();
+  if (error) return tradeError(error);
+  return { ok: true, trade: fromTradeRow(data) };
+}
+
+export async function deleteTrade(id) {
+  if (!client) return { ok: false, message: NOT_CONFIGURED };
+  const { error } = await client.from('trades').delete().eq('id', id);
+  return error ? tradeError(error) : { ok: true };
 }

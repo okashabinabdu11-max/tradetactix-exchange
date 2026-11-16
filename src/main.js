@@ -5,6 +5,8 @@ import { dashboardPage } from './pages/dashboard.js';
 import { riskPage } from './pages/risk.js';
 import { plannedPage, morePage, systemPage } from './pages/other.js';
 import { profilePage } from './pages/profile.js';
+import { journalPage } from './pages/journal.js';
+import { historyPage, analyticsPage, calendarPage, disciplinePage } from './pages/insights.js';
 import { session } from './state/session.js';
 import { initBackend } from './services/backend.js';
 
@@ -13,6 +15,11 @@ const builtPages = {
   risk: riskPage,
   system: systemPage,
   profile: profilePage,
+  journal: journalPage,
+  history: historyPage,
+  analytics: analyticsPage,
+  calendar: calendarPage,
+  discipline: disciplinePage,
   more: morePage,
 };
 

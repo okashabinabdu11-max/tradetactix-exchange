@@ -1,4 +1,4 @@
-import { SECTIONS, STAGES, CURRENT_STAGE, sectionById } from '../data/plan.js';
+import { SECTIONS, STAGES, CURRENT_STAGE, STAGE_OF, sectionById } from '../data/plan.js';
 import { appConfig, isSupabaseConfigured } from '../config.js';
 import { icon } from '../ui/icons.js';
 import { session } from '../state/session.js';
@@ -55,7 +55,7 @@ export function systemPage() {
             ${row('Database', dbText, Boolean(user))}
             ${row('Live trading', appConfig.liveTradingEnabled ? 'On' : 'Locked', false)}
           </ul>
-          <p class="panel-note">Live trading is switched off in the code itself. It can only be enabled in Stage 9, after the Exness MT5 connection works and you authorise it explicitly.</p>
+          <p class="panel-note">Live trading is switched off in the code itself. It can only be enabled in Stage ${STAGE_OF.live}, after the Exness MT5 connection works and you authorise it explicitly.</p>
         </section>
         <section class="panel" aria-labelledby="sys-road">
           <h2 id="sys-road" class="panel-title">Build progress</h2>
