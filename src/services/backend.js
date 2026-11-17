@@ -258,3 +258,22 @@ export async function adminVerifyPayment(body) {
     return { ok: false, message: 'The check service could not be reached.' };
   }
 }
+
+// ---------- Telegram alerts ----------
+
+export const getMyTelegram = () => rows((c) => c.from('telegram_links').select('*').eq('user_id', session.get().user?.id)).then((r) => (r.ok ? { ok: true, data: r.data[0] || null } : r));
+export const createTelegramCode = () => call('create_telegram_link_code');
+export const unlinkTelegram = () => call('unlink_my_telegram');
+export const adminRecentAlerts = () => call('admin_recent_alerts');
+
+export async function adminSetupTelegram() {
+  const token = await getAccessToken();
+  if (!token) return { ok: false, message: 'Sign in first.' };
+  try {
+    const res = await fetch('/api/telegram-setup', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+    const data = await res.json();
+    return res.ok ? { ok: true, data } : { ok: false, message: data.message || 'Setup failed.' };
+  } catch {
+    return { ok: false, message: 'The setup service could not be reached.' };
+  }
+}

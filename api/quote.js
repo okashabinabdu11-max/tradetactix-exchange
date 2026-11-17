@@ -29,7 +29,7 @@ export default async function handler(req, res) {
       console.error('quote provider error', body?.code, body?.message);
       return send(res, result.status, { error: result.error }, 60);
     }
-    return send(res, 200, result.quote, 120);
+    return send(res, 200, result.quote, 300); // 5 minutes keeps the provider's daily limit safe
   } catch (err) {
     console.error('quote fetch failed', err?.name);
     return send(res, 502, { error: 'unreachable' }, 30);

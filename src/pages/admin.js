@@ -5,6 +5,7 @@ import { session } from '../state/session.js';
 import {
   adminOverview, adminListClaims, adminReviewClaim, adminListUsers, adminGrantCredits,
   adminUpdateSettings, adminSetNetwork, adminVerifyPayment, listNetworks, getPlanSettings,
+  adminSetupTelegram, adminRecentAlerts,
 } from '../services/backend.js';
 import { escapeHtml } from '../lib/format.js';
 
@@ -114,6 +115,18 @@ function settingsSection(s) {
     </section>`;
 }
 
+function telegramSection(settings, alerts) {
+  const bot = settings?.telegram_bot_username;
+  return `
+    <section class="panel admin-section">
+      <h2 class="panel-title">Telegram alerts</h2>
+      <p class="panel-note">${bot ? `Bot: @${escapeHtml(bot)}. Pro members who connect it get one message per new BUY or SELL.` : 'Not connected. Add the bot token to the server settings, then tap Connect bot.'}</p>
+      <div class="admin-actions"><button class="button button-quiet" type="button" data-telegram-setup>${bot ? 'Reconnect bot' : 'Connect bot'}</button></div>
+      <p class="form-status" id="tg-status" role="status"></p>
+      ${alerts.length ? `<ul class="claim-list">${alerts.map((a) => `<li><span>${dateTime(a.sent_at)}</span><span>${a.state.toUpperCase()}</span><span>${a.recipients} sent</span></li>`).join('')}</ul>` : '<p class="result-empty">No alerts sent yet.</p>'}
+    </section>`;
+}
+
 function usersSection(users) {
   return `
     <section class="panel admin-section">
@@ -143,7 +156,7 @@ export function adminPage() {
     mount(root) {
       const box = root.querySelector('#admin-view');
       let alive = true;
-      const state = { tab: 'pending', claims: [], networks: [], settings: null, users: [], overview: null, error: null };
+      const state = { tab: 'pending', claims: [], networks: [], settings: null, users: [], overview: null, error: null, alerts: [] };
 
       const draw = () => {
         if (!alive) return;
@@ -161,6 +174,7 @@ export function adminPage() {
           ${testSection(state.networks)}
           ${networksSection(state.networks)}
           ${settingsSection(state.settings)}
+          ${telegramSection(state.settings, state.alerts)}
           ${usersSection(state.users)}`;
       };
 
@@ -169,6 +183,7 @@ export function adminPage() {
         const [o, n, s, u] = await Promise.all([adminOverview(), listNetworks(), getPlanSettings(), adminListUsers('')]);
         if (!o.ok) { state.error = o.message; draw(); return; }
         state.overview = o.data; state.networks = n.ok ? n.data : []; state.settings = s.ok ? s.data : {}; state.users = u.ok ? u.data : [];
+        const al = await adminRecentAlerts(); state.alerts = al.ok ? al.data : [];
         await loadClaims();
         draw();
       };
@@ -178,6 +193,19 @@ export function adminPage() {
       box.addEventListener('click', async (e) => {
         const tab = e.target.closest('[data-tab]');
         if (tab) { state.tab = tab.dataset.tab; await loadClaims(); draw(); return; }
+
+        const tgSetup = e.target.closest('[data-telegram-setup]');
+        if (tgSetup) {
+          const out = root.querySelector('#tg-status');
+          tgSetup.disabled = true; out.textContent = 'Connecting…'; out.className = 'form-status';
+          const r = await adminSetupTelegram();
+          if (!r.ok) { tgSetup.disabled = false; out.textContent = r.message; out.className = 'form-status is-error'; return; }
+          const s = await getPlanSettings(); state.settings = s.ok ? s.data : state.settings;
+          draw();
+          const again = root.querySelector('#tg-status');
+          if (again) { again.textContent = `Connected to @${r.data.username}.`; again.className = 'form-status is-ok'; }
+          return;
+        }
 
         const hint = e.target.closest('[data-hint]');
         if (hint) {
@@ -234,6 +262,11 @@ export function adminPage() {
         }
         if (f.classList.contains('net-form')) {
           const decimals = f.elements.decimals.value === '' ? null : Number(f.elements.decimals.value);
+          const net = state.networks.find((n) => n.id === f.dataset.net);
+          if (net && f.elements.contract.value.trim().toLowerCase() === net.receiving_address.toLowerCase()) {
+            formStatus(f, 'That is your receiving address. The token contract is the address of the USDT token itself; tap Fill in.', 'is-error');
+            return;
+          }
           formStatus(f, 'Saving…');
           const r = await adminSetNetwork(f.dataset.net, { enabled: f.elements.enabled.checked, verified: f.elements.verified.checked, tokenContract: f.elements.contract.value.trim(), tokenDecimals: Number.isInteger(decimals) ? decimals : null, explorerTxUrl: null });
           if (!r.ok) { formStatus(f, r.message, 'is-error'); return; }

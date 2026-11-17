@@ -630,3 +630,9 @@ a { color: inherit; text-decoration: none; }
 @media (min-width: 960px) {
   .plan-grid { grid-template-columns: 1fr 1fr; align-items: stretch; }
 }
+
+/* ---------- Telegram alerts ---------- */
+.alerts { display: grid; gap: 10px; justify-items: start; }
+.alerts .panel-title, .alerts .panel-note { margin: 0; }
+.alerts .button { margin-top: 0; }
+.alerts-on { color: var(--buy); font-weight: 600; }

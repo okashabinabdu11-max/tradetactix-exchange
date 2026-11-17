@@ -59,7 +59,7 @@ test('handler: success is cached and never leaks the key', async () => {
   globalThis.fetch = realFetch;
   assert.equal(res.code, 200);
   assert.equal(res.body.price, 4112.35);
-  assert.match(res.headers['Cache-Control'], /s-maxage=120/);
+  assert.match(res.headers['Cache-Control'], /s-maxage=300/);
   assert.ok(calledUrl.includes('symbol=XAU%2FUSD') && calledUrl.includes('apikey=test-key-123'));
   assert.ok(!JSON.stringify(res.body).includes('test-key-123'));
 });
