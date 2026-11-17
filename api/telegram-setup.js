@@ -34,7 +34,10 @@ export default async function handler(req, res) {
       body: JSON.stringify({ p_username: me.username }),
       signal: AbortSignal.timeout(6000),
     });
-    if (!r.ok) return send(res, 502, { error: 'db_error', message: 'The bot works, but saving its name failed. Has the alerts database script been run?' });
+    if (!r.ok) {
+      const detail = await r.json().catch(() => null);
+      return send(res, 502, { error: 'db_error', message: `The bot works, but saving its name failed: ${String(detail?.message || r.status).slice(0, 200)}` });
+    }
     return send(res, 200, { username: me.username, webhook: `${origin}/api/telegram-webhook` });
   } catch (err) {
     return send(res, 502, { error: 'telegram_error', message: `Telegram said: ${String(err?.message || 'unknown error').slice(0, 200)}` });

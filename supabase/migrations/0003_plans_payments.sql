@@ -440,6 +440,7 @@ begin
     free_analysis = coalesce((p ->> 'free_analysis')::boolean, free_analysis),
     free_advanced_journal = coalesce((p ->> 'free_advanced_journal')::boolean, free_advanced_journal),
     updated_at = now()
+  where id  -- Supabase refuses updates without a WHERE clause
   returning * into v_row;
   return v_row;
 end;

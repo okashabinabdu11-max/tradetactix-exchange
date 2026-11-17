@@ -37,6 +37,7 @@ declare
 begin
   if not public.is_admin() then raise exception 'Administrators only.' using errcode = '42501'; end if;
   update public.app_settings set telegram_bot_username = nullif(btrim(ltrim(coalesce(p_username, ''), '@')), ''), updated_at = now()
+  where id  -- Supabase refuses updates without a WHERE clause
   returning * into v_row;
   return v_row;
 end;
