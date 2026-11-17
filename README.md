@@ -67,6 +67,17 @@ Roadmap: see `src/data/plan.js` (`STAGES`) or the System page in the app.
   random string), optional `BSC_RPC_URL`, `PLASMA_RPC_URL`, `TRON_API_URL`,
   `TRONGRID_API_KEY`.
 
+## Telegram alerts
+
+- Pro members connect Telegram from the Plans page (a one-time code sent to
+  the bot with `/start`). `/stop` turns alerts off.
+- The database calls `/api/alerts-run` every 5 minutes (pg_cron + pg_net).
+  A new BUY or SELL is recorded once in `alert_log` and sent to linked Pro
+  members only. `api/telegram-webhook.js` handles the bot's messages.
+- Server settings: `TELEGRAM_BOT_TOKEN` (from @BotFather) and `ALERTS_SECRET`
+  (the same value is stored in the database table `server_secrets`). Then use
+  Admin > Telegram alerts > Connect bot.
+
 ## Database setup (once)
 
 1. In Supabase, open **SQL Editor** and run each file in

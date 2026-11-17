@@ -3,12 +3,12 @@
 // makes, including "only your own rows" access. It is never bundled into the site.
 
 const accounts = new Map([['owner@example.com', { id: 'user-1', password: 'correct-horse' }]]);
-const tables = { risk_settings: [], trades: [], app_settings: [], payment_networks: [], payment_claims: [] };
+const tables = { risk_settings: [], trades: [], app_settings: [], payment_networks: [], payment_claims: [], telegram_links: [] };
 const opts = new URLSearchParams(location.search);
 // Plans state for browser tests: ?plan=free|pro|admin and ?networks=bep20,trc20 (open networks).
 const PLAN = opts.get('plan') || 'free';
 const OPEN = (opts.get('networks') || '').split(',').filter(Boolean);
-tables.app_settings.push({ id: true, pro_price_usdt: 10, credits_per_purchase: 30, hours_per_credit: 24, free_previews_per_month: 10, free_shows_levels: false, free_analysis: false, free_advanced_journal: false });
+tables.app_settings.push({ id: true, pro_price_usdt: 10, credits_per_purchase: 30, hours_per_credit: 24, free_previews_per_month: 10, free_shows_levels: false, free_analysis: false, free_advanced_journal: false, telegram_bot_username: opts.get('bot') || null });
 for (const [id, label, addr, auto] of [
   ['bep20', 'USDT on BNB Smart Chain (BEP20)', '0x3030c068eca3e9d104ebb005564fa7a50231f9b9', true],
   ['trc20', 'USDT on TRON (TRC20)', 'TBPuZUcRgVSjqZ1vkvRqsKSAKs24aLgNWF', true],
@@ -114,6 +114,9 @@ export function createClient(url, key) {
       Object.assign(c, { status: p_approve ? 'approved' : 'rejected', admin_note: p_note });
       return { data: c, error: null };
     },
+    create_telegram_link_code: () => ({ data: 'ABCDEFGHJK', error: null }),
+    unlink_my_telegram: () => { tables.telegram_links.length = 0; return { data: null, error: null }; },
+    admin_recent_alerts: () => ({ data: [{ signal_key: 'buy-x', state: 'buy', recipients: 3, sent_at: new Date().toISOString() }], error: null }),
     admin_list_users: () => ({ data: [{ user_id: 'user-9', email: 'customer@example.com', created_at: new Date().toISOString(), pro_until: null, is_admin: false }], error: null }),
     admin_grant_credits: ({ p_credits }) => { window.__granted = p_credits; return { data: new Date().toISOString(), error: null }; },
     admin_update_settings: ({ p }) => { Object.assign(tables.app_settings[0], p); return { data: tables.app_settings[0], error: null }; },

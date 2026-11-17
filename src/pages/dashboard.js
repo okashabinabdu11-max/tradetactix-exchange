@@ -53,7 +53,7 @@ function priceMarkup({ status, quote, message }) {
       ${cell('Price', price(quote.price))}
       ${cell('Today', changeText, change > 0 ? 'is-profit' : change < 0 ? 'is-loss' : '')}
     </dl>
-    <p class="panel-note" id="price-note">${closed}${range}From ${quote.source}, checked at ${stamp} and refreshed every two minutes. Exness quotes can differ slightly.</p>`;
+    <p class="panel-note" id="price-note">${closed}${range}From ${quote.source}, checked at ${stamp} and refreshed every five minutes. Exness quotes can differ slightly.</p>`;
 }
 
 function pricePanel() {
@@ -183,7 +183,7 @@ export function dashboardPage() {
       };
       refreshSignal();
       const signalTimer = setInterval(() => { if (!document.hidden) refreshSignal(); }, 300000);
-      const priceTimer = setInterval(() => { if (!document.hidden) refreshPrice(); }, 120000);
+      const priceTimer = setInterval(() => { if (!document.hidden) refreshPrice(); }, 300000);
       // A real count from the user's own journal; it stays empty when signed out.
       if (session.get().user) {
         listTrades().then((res) => {

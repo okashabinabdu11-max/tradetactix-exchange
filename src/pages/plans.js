@@ -3,7 +3,7 @@
 // administrator approves a payment whose on-chain check passed.
 
 import { session } from '../state/session.js';
-import { getPlanSettings, listNetworks, listMyClaims, startPayment, submitClaim, refreshEntitlement } from '../services/backend.js';
+import { getPlanSettings, listNetworks, listMyClaims, startPayment, submitClaim, refreshEntitlement, getMyTelegram, createTelegramCode, unlinkTelegram } from '../services/backend.js';
 import { isSupabaseConfigured } from '../config.js';
 import { escapeHtml } from '../lib/format.js';
 
@@ -34,6 +34,26 @@ function statusPanel(e) {
   }
   return `<section class="panel status-card"><p class="panel-kicker">Your plan</p><p class="status-plan">Free</p>
     <dl class="quote quote-two"><div><dt>Credits</dt><dd>0</dd></div><div><dt>Previews this month</dt><dd>${e.previews_used} of ${e.previews_limit}</dd></div></dl></section>`;
+}
+
+function alertsPanel(settings, entitlement, link, code) {
+  const bot = settings?.telegram_bot_username;
+  const head = '<h2 class="panel-title">Telegram alerts</h2>';
+  if (!bot) return `<section class="panel alerts">${head}<p class="result-empty">Telegram alerts are not switched on yet.</p></section>`;
+  const pro = entitlement?.plan === 'pro';
+  if (link) {
+    return `<section class="panel alerts">${head}
+      <p class="alerts-on">Connected to Telegram${pro ? '' : ', but alerts are only sent to Pro members'}.</p>
+      <p class="panel-note">You get a message from @${escapeHtml(bot)} when a BUY or SELL signal appears, with entry, stop-loss and take-profit.</p>
+      <button class="button button-quiet" type="button" data-telegram="off">Turn off alerts</button></section>`;
+  }
+  if (!pro) return `<section class="panel alerts">${head}<p class="result-empty">Instant BUY and SELL alerts on Telegram are part of Pro.</p></section>`;
+  return `<section class="panel alerts">${head}
+    <p class="panel-note">Get a Telegram message the moment a BUY or SELL signal appears.</p>
+    ${code ? `<a class="button button-primary" href="https://t.me/${escapeHtml(bot)}?start=${escapeHtml(code)}" target="_blank" rel="noopener">Open Telegram and tap Start</a>
+      <p class="panel-note">The link works for 15 minutes. After tapping Start in Telegram, come back and reload this page.</p>`
+      : '<button class="button button-primary" type="button" data-telegram="link">Connect Telegram</button>'}
+    </section>`;
 }
 
 const STATUS = { awaiting: 'Waiting for your payment', pending: 'Paid, being checked', approved: 'Approved, credits added', rejected: 'Rejected', expired: 'Expired' };
@@ -89,6 +109,8 @@ export function plansPage() {
       let networks = [];
       let claims = [];
       let settings = null;
+      let telegramLink = null;
+      let telegramCode = null;
 
       const draw = () => {
         if (!alive) return;
@@ -96,8 +118,8 @@ export function plansPage() {
         const price = settings.pro_price_usdt; const credits = settings.credits_per_purchase; const hours = settings.hours_per_credit;
         let body = compare(price, credits, hours);
         if (!user) body = `${body}<section class="panel"><p class="result-empty">Sign in to see your credits and buy Pro.</p><a class="button button-quiet" href="#/profile">Sign in</a></section>`;
-        else if (entitlement?.unlimited) body = statusPanel(entitlement) + body;
-        else body = statusPanel(entitlement) + body + payPanel(networks, open) + claimsList(claims);
+        else if (entitlement?.unlimited) body = statusPanel(entitlement) + alertsPanel(settings, entitlement, telegramLink, telegramCode) + body;
+        else body = statusPanel(entitlement) + alertsPanel(settings, entitlement, telegramLink, telegramCode) + body + payPanel(networks, open) + claimsList(claims);
         box.innerHTML = body;
       };
 
@@ -106,7 +128,8 @@ export function plansPage() {
         const s = await getPlanSettings();
         settings = s.ok ? s.data : null;
         if (user) {
-          const [n, c] = await Promise.all([listNetworks(), listMyClaims()]);
+          const [n, c, t] = await Promise.all([listNetworks(), listMyClaims(), getMyTelegram()]);
+          telegramLink = t.ok ? t.data : null;
           networks = n.ok ? n.data : [];
           claims = c.ok ? c.data : [];
           open = claims.find((x) => x.status === 'awaiting' && new Date(x.expires_at) > new Date()) || null;
@@ -131,6 +154,19 @@ export function plansPage() {
       });
 
       box.addEventListener('click', async (e) => {
+        const tg = e.target.closest('[data-telegram]');
+        if (tg) {
+          tg.disabled = true;
+          if (tg.dataset.telegram === 'link') {
+            const r = await createTelegramCode();
+            if (r.ok) telegramCode = r.data;
+          } else {
+            const r = await unlinkTelegram();
+            if (r.ok) telegramLink = null;
+          }
+          draw();
+          return;
+        }
         const btn = e.target.closest('[data-copy]');
         if (!btn) return;
         try { await navigator.clipboard.writeText(btn.dataset.copy); btn.textContent = 'Copied'; }
