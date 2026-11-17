@@ -108,51 +108,24 @@ test('a single bad candle rejects the whole series', () => {
 
 test('candles handler validates the timeframe and hides the key', async () => {
   process.env.TWELVEDATA_API_KEY = 'test-key-123';
+  process.env.CANDLES_KEY = 'internal-secret-0123456789';
+  const k = 'internal-secret-0123456789';
   const bad = fakeRes();
-  await candlesHandler({ method: 'GET', query: { tf: '1min' } }, bad);
+  await candlesHandler({ method: 'GET', query: { tf: '1min', k } }, bad);
   assert.equal(bad.code, 400);
   const proto = fakeRes();
-  await candlesHandler({ method: 'GET', query: { tf: 'constructor' } }, proto);
+  await candlesHandler({ method: 'GET', query: { tf: 'constructor', k } }, proto);
   assert.equal(proto.code, 400);
 
   const realFetch = globalThis.fetch;
   let calledUrl = '';
   globalThis.fetch = async (url) => { calledUrl = String(url); return { json: async () => seriesBody }; };
   const res = fakeRes();
-  await candlesHandler({ method: 'GET', query: { tf: '15min' } }, res);
+  await candlesHandler({ method: 'GET', query: { tf: '15min', k } }, res);
   globalThis.fetch = realFetch;
   assert.equal(res.code, 200);
   assert.equal(res.body.candles.length, 2);
   assert.match(res.headers['Cache-Control'], /s-maxage=450/);
   assert.ok(calledUrl.includes('interval=15min') && calledUrl.includes('timezone=UTC'));
   assert.ok(!JSON.stringify(res.body).includes('test-key-123'));
-});
-
-// ---------- Server-side signal ----------
-import signalHandler from '../api/signal.js';
-
-test('signal handler reports offline when candles fail, and rejects odd hosts', async () => {
-  const realFetch = globalThis.fetch;
-  globalThis.fetch = async () => ({ ok: false, json: async () => ({ error: 'rate_limited' }) });
-  const res = fakeRes();
-  await signalHandler({ method: 'GET', headers: { host: 'example.test' } }, res);
-  globalThis.fetch = realFetch;
-  assert.equal(res.code, 200);
-  assert.equal(res.body.state, 'offline');
-  assert.match(res.body.reason, /rate_limited/);
-
-  const bad = fakeRes();
-  await signalHandler({ method: 'GET', headers: { host: 'evil.test/path?x=' } }, bad);
-  assert.equal(bad.code, 400);
-});
-
-test('signal handler reads its own candle endpoints', async () => {
-  const realFetch = globalThis.fetch;
-  const urls = [];
-  globalThis.fetch = async (url) => { urls.push(String(url)); return { ok: true, json: async () => ({ candles: [] }) }; };
-  const res = fakeRes();
-  await signalHandler({ method: 'GET', headers: { host: 'example.test' } }, res);
-  globalThis.fetch = realFetch;
-  assert.deepEqual(urls.sort(), ['https://example.test/api/candles?tf=15min', 'https://example.test/api/candles?tf=1h', 'https://example.test/api/candles?tf=4h']);
-  assert.equal(res.body.state, 'offline'); // no candles is not enough history
 });

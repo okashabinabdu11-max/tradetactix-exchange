@@ -47,7 +47,7 @@ test('router falls back to the dashboard for unknown routes', () => {
 
 test('plan data is consistent', () => {
   assert.deepEqual(TIMEFRAMES.map((t) => t.tf), ['4H', '1H', '15M', '5M']);
-  assert.deepEqual(SIGNAL_STATES.map((s) => s.id), ['offline', 'no-setup', 'waiting', 'buy', 'sell']);
+  assert.deepEqual(SIGNAL_STATES.map((s) => s.id), ['offline', 'no-setup', 'locked', 'waiting', 'buy', 'sell']);
   for (const s of SECTIONS) {
     assert.ok(STAGES.some((st) => st.n === s.stage), `${s.id} has a valid stage`);
     if (s.stage > CURRENT_STAGE) assert.ok(s.summary, `${s.id} explains what is planned`);
@@ -71,7 +71,7 @@ test('chart views follow the plan: 4H line chart, then candles', () => {
   assert.equal(widgetConfig(CHART_VIEWS[1]).allow_symbol_change, false);
 });
 
-import { CALENDAR_CONFIG, NEWS_CONFIG } from '../src/pages/signals.js';
+import { CALENDAR_CONFIG, NEWS_CONFIG } from '../src/data/widgets.js';
 
 test('fundamentals widgets are scoped to gold: US events, XAUUSD news', () => {
   assert.equal(CALENDAR_CONFIG.countryFilter, 'us');

@@ -5,6 +5,7 @@ import { ratio } from '../lib/format.js';
 import { STAGE_OF } from '../data/plan.js';
 import { verdictMarkup, levelsMarkup } from './signalView.js';
 import { loadTradingViewWidget } from '../ui/tvWidget.js';
+import { CALENDAR_CONFIG, NEWS_CONFIG } from '../data/widgets.js';
 
 const REFRESH_MS = 5 * 60e3;
 const myMinimum = () => (session.get().user ? session.get().riskSettings?.minRewardToRisk : null) ?? MIN_REWARD_TO_RISK;
@@ -48,32 +49,15 @@ export function signalsPage() {
   });
 }
 
-export const CALENDAR_CONFIG = Object.freeze({
-  colorTheme: 'dark',
-  isTransparent: true,
-  locale: 'en',
-  width: '100%',
-  height: '100%',
-  importanceFilter: '0,1', // medium and high impact only
-  countryFilter: 'us', // gold is priced in US dollars
-});
-
-export const NEWS_CONFIG = Object.freeze({
-  feedMode: 'symbol',
-  symbol: 'OANDA:XAUUSD',
-  displayMode: 'regular',
-  colorTheme: 'dark',
-  isTransparent: true,
-  locale: 'en',
-  width: '100%',
-  height: '100%',
-});
-
 function levelsBody(signal) {
   if (!signal) return '<p class="result-empty">Reading the candles…</p>';
   if (signal.state === 'offline') return `<section class="panel"><p class="result-empty">${signal.reason}</p></section>`;
   return levelsMarkup(signal);
 }
+
+// Null entitlement means the plans tables are not readable; the server decides
+// what the levels show either way, so only the widgets depend on this.
+const analysisOpen = () => session.get().entitlement?.shows_analysis === true;
 
 export function analysisPage() {
   return {
@@ -84,7 +68,7 @@ export function analysisPage() {
         <p>The technical picture the signal engine is reading, then the scheduled events and news that move gold.</p>
       </header>
       <div id="signal-view">${levelsBody(signalState())}</div>
-      <section class="panel fundamentals" aria-labelledby="cal-h">
+${analysisOpen() ? `      <section class="panel fundamentals" aria-labelledby="cal-h">
         <h2 id="cal-h" class="panel-title">US economic calendar</h2>
         <div class="widget-frame" id="tv-calendar"></div>
         <p class="panel-note">Medium and high impact United States releases, from TradingView. Gold often moves sharply around inflation, jobs and Federal Reserve announcements, so check this before acting on a signal.</p>
@@ -93,7 +77,7 @@ export function analysisPage() {
         <h2 id="news-h" class="panel-title">Gold news</h2>
         <div class="widget-frame widget-frame-tall" id="tv-news"></div>
         <p class="panel-note">Headlines for XAUUSD from TradingView. The signal engine does not read the calendar or the news; it only reads price.</p>
-      </section>`,
+      </section>` : ''}`,
     mount(root) {
       const box = root.querySelector('#signal-view');
       let alive = true;
@@ -104,8 +88,10 @@ export function analysisPage() {
       refresh();
       const timer = setInterval(() => { if (!document.hidden) refresh(); }, REFRESH_MS);
       // The widgets are loaded once and left alone; only the levels above refresh.
-      loadTradingViewWidget(root.querySelector('#tv-calendar'), 'embed-widget-events.js', CALENDAR_CONFIG, 'The economic calendar could not load.');
-      loadTradingViewWidget(root.querySelector('#tv-news'), 'embed-widget-timeline.js', NEWS_CONFIG, 'The news feed could not load.');
+      if (root.querySelector('#tv-calendar')) {
+        loadTradingViewWidget(root.querySelector('#tv-calendar'), 'embed-widget-events.js', CALENDAR_CONFIG, 'The economic calendar could not load.');
+        loadTradingViewWidget(root.querySelector('#tv-news'), 'embed-widget-timeline.js', NEWS_CONFIG, 'The news feed could not load.');
+      }
       return () => { alive = false; clearInterval(timer); };
     },
   };

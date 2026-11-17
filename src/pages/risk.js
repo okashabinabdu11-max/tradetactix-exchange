@@ -96,7 +96,7 @@ export function riskPage() {
   let minRewardToRisk = saved?.minRewardToRisk ?? MIN_REWARD_TO_RISK;
   const startRisk = saved?.riskPercent ?? DEFAULT_RISK_SETTINGS.riskPercent;
   const live = signalState();
-  const sig = live && (live.state === 'buy' || live.state === 'sell') ? live : null;
+  const sig = live && (live.state === 'buy' || live.state === 'sell') && live.entry != null ? live : null;
   const fill = (v) => (sig ? `value="${v.toFixed(2)}"` : '');
 
   return {

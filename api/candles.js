@@ -1,7 +1,8 @@
-// GET /api/candles?tf=4h|1h|15min — XAUUSD candles for the signal engine.
+// GET /api/candles?tf=4h|1h|15min&k=… — XAUUSD candles for the signal engine.
 // Server-side so the provider key stays private; cached per timeframe so the
 // free plan's daily limit is not exceeded.
 
+import { timingSafeEqual } from 'node:crypto';
 import { normalizeSeries, TIMEFRAMES } from './_lib/candles.js';
 
 const PROVIDER_URL = 'https://api.twelvedata.com/time_series';
@@ -16,6 +17,15 @@ export default async function handler(req, res) {
     res.setHeader('Allow', 'GET');
     return send(res, 405, { error: 'method_not_allowed' }, 60);
   }
+  // Raw candles are enough to rebuild every signal, so only our own signal
+  // function may read them. It proves itself with a key held in the server's
+  // environment. Without that key configured, nothing is served.
+  const expected = process.env.CANDLES_KEY || '';
+  const given = String(req.query?.k || '');
+  const a = Buffer.from(given.padEnd(64).slice(0, 64));
+  const b = Buffer.from(expected.padEnd(64).slice(0, 64));
+  if (!expected || given.length !== expected.length || !timingSafeEqual(a, b)) return send(res, 403, { error: 'forbidden' }, 60);
+
   const tf = String(req.query?.tf || '');
   const config = Object.hasOwn(TIMEFRAMES, tf) ? TIMEFRAMES[tf] : null;
   if (!config) return send(res, 400, { error: 'bad_timeframe' }, 300);
