@@ -30,42 +30,28 @@ export async function getQuote() {
   return last;
 }
 
-// ---------- Candles and the signal ----------
+// ---------- The signal ----------
+// Worked out on the server and cut down to what the caller's plan allows, so
+// entry, stop and target never reach a browser that is not entitled to them.
 
-import { evaluate } from '../lib/signals.js';
-
-const CANDLE_TTL_MS = { '4h': 30 * 60e3, '1h': 15 * 60e3, '15min': 5 * 60e3 };
-const candleCache = new Map();
-
-async function getCandles(tf) {
-  const hit = candleCache.get(tf);
-  if (hit && Date.now() - hit.at < CANDLE_TTL_MS[tf]) return hit.result;
-  let result;
-  try {
-    const res = await fetch(`/api/candles?tf=${tf}`, { headers: { Accept: 'application/json' } });
-    const type = res.headers.get('content-type') || '';
-    if (!type.includes('json')) throw new Error('not json');
-    const body = await res.json();
-    result = res.ok && Array.isArray(body.candles)
-      ? { ok: true, candles: body.candles }
-      : { ok: false, message: MESSAGES[body.error] || 'The candle data is unavailable.' };
-  } catch {
-    result = { ok: false, message: 'The candle data could not be reached.' };
-  }
-  if (result.ok) candleCache.set(tf, { at: Date.now(), result });
-  return result;
-}
+import { getAccessToken } from './backend.js';
 
 let lastSignal = null;
 export const signalState = () => lastSignal;
+export const clearSignal = () => { lastSignal = null; };
 
-/** Fetches the three timeframes and runs the engine. Failures come back as "offline". */
 export async function getSignal(minRewardToRisk) {
-  const [h4, h1, m15] = await Promise.all([getCandles('4h'), getCandles('1h'), getCandles('15min')]);
-  const failed = [h4, h1, m15].find((r) => !r.ok);
-  lastSignal = failed
-    ? { state: 'offline', reason: failed.message, checks: null }
-    : evaluate({ h4: h4.candles, h1: h1.candles, m15: m15.candles, minRewardToRisk });
-  lastSignal.readAt = new Date().toISOString();
+  try {
+    const token = await getAccessToken();
+    const query = minRewardToRisk > 3 ? `?minrr=${encodeURIComponent(minRewardToRisk)}` : '';
+    const res = await fetch(`/api/signal${query}`, { headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
+    const type = res.headers.get('content-type') || '';
+    if (!type.includes('json')) throw new Error('not json');
+    const body = await res.json();
+    if (!res.ok || typeof body.state !== 'string') throw new Error('bad signal');
+    lastSignal = body;
+  } catch {
+    lastSignal = { state: 'offline', access: 'anonymous', reason: 'The signal service could not be reached.', readAt: new Date().toISOString() };
+  }
   return lastSignal;
 }

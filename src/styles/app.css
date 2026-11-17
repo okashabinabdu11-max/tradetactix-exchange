@@ -529,3 +529,104 @@ a { color: inherit; text-decoration: none; }
 .widget-frame .tradingview-widget-container__widget { width: 100%; height: 100%; }
 .widget-error { padding: 18px; }
 .inline-link { color: var(--gold); text-decoration: underline; }
+
+/* ---------- Stage 7: plans, payments, admin ---------- */
+[hidden] { display: none !important; }
+.verdict-state.is-sentence { font-size: clamp(30px, 8vw, 50px); line-height: 1.02; }
+.signal-levels dd.is-locked { color: var(--muted); font-size: 22px; }
+.upgrade { display: grid; gap: 10px; justify-items: start; }
+.upgrade h2 { font-family: var(--font-display); font-weight: 700; font-size: 26px; }
+.upgrade p { color: var(--muted); max-width: 60ch; }
+
+#plans-view, #admin-view { display: grid; gap: 14px; }
+#plans-view > *, #admin-view > * { min-width: 0; }
+.plan-grid { display: grid; gap: 14px; }
+.plan-card { display: grid; gap: 10px; align-content: start; }
+.plan-card h2 { font-family: var(--font-display); font-weight: 700; font-size: 28px; }
+.plan-card.is-pro { border-color: rgba(217, 180, 91, 0.55); }
+.plan-card.is-pro h2 { color: var(--gold); }
+.plan-price { font-family: var(--font-display); font-weight: 800; font-size: 40px; line-height: 1; }
+.plan-price small { font-family: var(--font-body); font-weight: 500; font-size: 15px; color: var(--muted); }
+.plan-list { display: grid; gap: 8px; }
+.plan-list li { padding-left: 18px; position: relative; }
+.plan-list li::before { content: ''; position: absolute; left: 2px; top: 0.62em; width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+.is-pro .plan-list li::before { background: var(--gold); }
+.status-card { display: grid; gap: 10px; }
+.status-plan { font-family: var(--font-display); font-weight: 800; font-size: 44px; line-height: 1; color: var(--gold); }
+.status-date { font-size: 22px !important; }
+
+.pay { display: grid; gap: 14px; }
+.pay .panel-title { margin: 0; }
+.pay-box { display: grid; gap: 14px; padding: 14px; border: 1px solid rgba(217, 180, 91, 0.45); border-radius: var(--r-md); background: var(--base); }
+.pay-amount { display: grid; gap: 2px; }
+.pay-amount span { font-size: 13px; color: var(--muted); }
+.pay-amount strong { font-family: var(--font-display); font-weight: 800; font-size: 40px; line-height: 1; color: var(--gold); }
+.pay-warn { font-size: 14px; color: var(--muted); }
+.pay-warn strong { color: var(--text); }
+.copy-row { display: grid; gap: 8px; }
+.copy-row code, .net-address code, .net-hint code, .kv code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13.5px; overflow-wrap: anywhere; word-break: break-all; }
+.copy-row code { padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-sm); }
+.copy-row .button { margin-top: 0; justify-self: start; }
+.hash-form { display: grid; gap: 12px; }
+.hash-form .button { justify-self: start; }
+.field input[type="text"], .field input[type="search"], .search-row input, .grant-form input {
+  width: 100%; min-height: 48px; padding: 0 12px; background: var(--base); color: var(--text);
+  border: 1px solid var(--line); border-radius: var(--r-md); font: inherit; font-size: 16px;
+}
+.claim-list li { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 10px 0; font-size: 14.5px; }
+.claim-list li + li { border-top: 1px solid var(--line); }
+.claim-status { font-size: 12.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.claim-status.is-pending, .claim-status.is-awaiting { color: var(--gold); border-color: rgba(217, 180, 91, 0.45); }
+.claim-status.is-approved { color: var(--buy); border-color: rgba(53, 196, 145, 0.45); }
+.claim-status.is-rejected { color: var(--sell); border-color: rgba(240, 97, 106, 0.45); }
+.claim-note { width: 100%; font-size: 13.5px; color: var(--muted); }
+
+.admin-stats { grid-template-columns: repeat(2, 1fr); }
+.admin-section { display: grid; gap: 12px; }
+.admin-section .panel-title, .admin-section .panel-note { margin: 0; }
+.tab-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.tab-btn { min-height: 40px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--base); color: var(--muted); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.tab-btn[aria-pressed="true"] { color: var(--gold); border-color: var(--gold); background: var(--gold-dim); }
+.admin-claims { display: grid; }
+.admin-claim { display: grid; gap: 8px; padding: 14px 0; }
+.admin-claim + .admin-claim { border-top: 1px solid var(--line); }
+.admin-claim-top { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
+.admin-claim-top span:nth-child(2) { color: var(--muted); font-size: 14px; }
+.admin-claim-hash { font-size: 13.5px; color: var(--muted); overflow-wrap: anywhere; }
+.admin-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.admin-actions .button, .admin-form .button, .net-form .button, .search-row .button, .grant-form .button { margin-top: 0; }
+.button.is-danger { color: var(--sell); }
+.chk { font-size: 14px; font-weight: 600; }
+.chk-none { color: var(--muted); }
+.chk-ok { color: var(--buy); }
+.chk-fail { color: var(--sell); }
+.admin-form { display: grid; gap: 12px; }
+.admin-form .button { justify-self: start; }
+.net-form { display: grid; gap: 10px; padding: 14px 0; border-top: 1px solid var(--line); }
+.net-head { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+.net-address { display: grid; gap: 4px; }
+.net-hint { font-size: 13.5px; color: var(--muted); }
+.net-hint .link-button { padding: 0 0 0 4px; font-size: 13.5px; }
+.net-form .button { justify-self: start; }
+.search-row { display: flex; gap: 8px; }
+.admin-users li { display: grid; gap: 6px; padding: 12px 0; }
+.admin-users li + li { border-top: 1px solid var(--line); }
+.user-meta { font-size: 13.5px; color: var(--muted); }
+.grant-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: center; }
+.grant-form .button { justify-self: start; }
+.grant-form .form-status { grid-column: 1 / -1; min-height: 0; }
+.test-out { display: grid; gap: 8px; padding: 12px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--base); }
+.test-out.is-ok { border-color: rgba(53, 196, 145, 0.45); }
+.test-out.is-ok strong { color: var(--buy); }
+.test-out.is-fail strong { color: var(--sell); }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font-size: 14px; }
+.kv dt { color: var(--muted); }
+
+@media (min-width: 620px) {
+  .copy-row { grid-template-columns: 1fr auto; align-items: center; }
+  .admin-stats { grid-template-columns: repeat(5, 1fr); }
+  .grant-form { grid-template-columns: 160px 1fr auto; }
+}
+@media (min-width: 960px) {
+  .plan-grid { grid-template-columns: 1fr 1fr; align-items: stretch; }
+}

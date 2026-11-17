@@ -1,6 +1,9 @@
 import { SECTIONS } from './data/plan.js';
 import { startRouter } from './router.js';
-import { renderShell, setActiveNav } from './ui/shell.js';
+import { renderShell, setActiveNav, setAdminNav } from './ui/shell.js';
+import { clearSignal } from './services/market.js';
+import { plansPage } from './pages/plans.js';
+import { adminPage } from './pages/admin.js';
 import { dashboardPage } from './pages/dashboard.js';
 import { riskPage } from './pages/risk.js';
 import { plannedPage, morePage, systemPage } from './pages/other.js';
@@ -18,6 +21,8 @@ const builtPages = {
   system: systemPage,
   profile: profilePage,
   chart: chartPage,
+  plans: plansPage,
+  admin: adminPage,
   signals: signalsPage,
   analysis: analysisPage,
   journal: journalPage,
@@ -43,6 +48,7 @@ function render(routeId, { keepScroll = false } = {}) {
   cleanup = page.mount ? page.mount(main) : null;
   document.title = `${page.title} | TradeTactix AI`;
   setActiveNav(root, routeId);
+  setAdminNav(root, Boolean(session.get().entitlement?.is_admin));
   if (!keepScroll) window.scrollTo(0, 0);
 }
 
@@ -69,4 +75,7 @@ initBackend();
 startRouter(routeIds, render);
 
 // Signing in or out changes what pages show, so draw the current page again.
-session.subscribe(() => render(currentRoute, { keepScroll: true }));
+session.subscribe(() => {
+  clearSignal(); // a different user or plan sees a different amount of the signal
+  render(currentRoute, { keepScroll: true });
+});

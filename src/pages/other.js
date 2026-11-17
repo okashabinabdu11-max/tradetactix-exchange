@@ -30,7 +30,7 @@ export function morePage() {
     html: `
       <header class="page-head"><h1>All sections</h1></header>
       <nav class="panel more-list" aria-label="All sections">
-        ${SECTIONS.map((s) => `
+        ${SECTIONS.filter((s) => !s.adminOnly || session.get().entitlement?.is_admin).map((s) => `
           <a href="#/${s.id}">${icon(s.icon)}<span>${s.label}</span>${s.stage > CURRENT_STAGE ? `<span class="nav-stage">Stage ${s.stage}</span>` : ''}</a>`).join('')}
       </nav>`,
   };

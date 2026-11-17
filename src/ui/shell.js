@@ -12,7 +12,7 @@ const brand = `
 
 function navLink(section) {
   const planned = section.stage > CURRENT_STAGE ? `<span class="nav-stage">Stage ${section.stage}</span>` : '';
-  return `<a class="nav-link" href="#/${section.id}" data-nav="${section.id}">${icon(section.icon)}<span>${section.label}</span>${planned}</a>`;
+  return `<a class="nav-link" href="#/${section.id}" data-nav="${section.id}" ${section.adminOnly ? 'data-admin hidden' : ''}>${icon(section.icon)}<span>${section.label}</span>${planned}</a>`;
 }
 
 export function renderShell(root) {
@@ -41,6 +41,11 @@ export function renderShell(root) {
     </nav>`;
 
   return root.querySelector('#main');
+}
+
+/** Shows administrator-only links to administrators. Access itself is enforced by the database. */
+export function setAdminNav(root, isAdmin) {
+  root.querySelectorAll('[data-admin]').forEach((el) => { el.hidden = !isAdmin; });
 }
 
 export function setActiveNav(root, routeId) {

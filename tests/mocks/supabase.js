@@ -3,7 +3,19 @@
 // makes, including "only your own rows" access. It is never bundled into the site.
 
 const accounts = new Map([['owner@example.com', { id: 'user-1', password: 'correct-horse' }]]);
-const tables = { risk_settings: [], trades: [] };
+const tables = { risk_settings: [], trades: [], app_settings: [], payment_networks: [], payment_claims: [] };
+const opts = new URLSearchParams(location.search);
+// Plans state for browser tests: ?plan=free|pro|admin and ?networks=bep20,trc20 (open networks).
+const PLAN = opts.get('plan') || 'free';
+const OPEN = (opts.get('networks') || '').split(',').filter(Boolean);
+tables.app_settings.push({ id: true, pro_price_usdt: 10, credits_per_purchase: 30, hours_per_credit: 24, free_previews_per_month: 10, free_shows_levels: false, free_analysis: false, free_advanced_journal: false });
+for (const [id, label, addr, auto] of [
+  ['bep20', 'USDT on BNB Smart Chain (BEP20)', '0x3030c068eca3e9d104ebb005564fa7a50231f9b9', true],
+  ['trc20', 'USDT on TRON (TRC20)', 'TBPuZUcRgVSjqZ1vkvRqsKSAKs24aLgNWF', true],
+  ['plasma', 'USDT on Plasma', '0x3030c068eca3e9d104ebb005564fa7a50231f9b9', true],
+  ['aptos', 'USDT on Aptos', '0xe3f9f6deddf7bcfac6d7bb62a584cf8a024b94239d6ce07105f02a63287e10a0', false],
+]) tables.payment_networks.push({ id, label, receiving_address: addr, auto_verify: auto, enabled: OPEN.includes(id), verified: OPEN.includes(id), token_contract: OPEN.includes(id) ? 'TOKEN' : null, token_decimals: OPEN.includes(id) ? 6 : null, explorer_tx_url: 'https://explorer.test/tx/', sort: tables.payment_networks.length });
+window.__mock = tables;
 const missing = new URLSearchParams(location.search).get('missingTable');
 let nextId = 1;
 
@@ -22,7 +34,8 @@ export function createClient(url, key) {
       const uid = current?.user.id;
       const rls = { data: null, error: { code: '42501', message: 'new row violates row-level security policy' } };
       const rows = tables[name];
-      const visible = () => rows.filter((r) => r.user_id === uid && q.filters.every(([c, v]) => r[c] === v));
+      const shared = name === 'app_settings' || name === 'payment_networks';
+      const visible = () => rows.filter((r) => (shared ? (name !== 'payment_networks' || r.enabled || PLAN === 'admin') : r.user_id === uid) && q.filters.every(([c, v]) => r[c] === v));
       let out;
       if (q.op === 'select') {
         out = visible();
@@ -66,8 +79,57 @@ export function createClient(url, key) {
     return b;
   }
 
+  const entitlement = () => {
+    if (!current) return null;
+    const pro = PLAN !== 'free';
+    return { signed_in: true, is_admin: PLAN === 'admin', unlimited: PLAN === 'admin', plan: pro ? 'pro' : 'free', credits: PLAN === 'pro' ? 12 : 0,
+      pro_until: PLAN === 'pro' ? new Date(Date.now() + 11.5 * 86400e3).toISOString() : null, previews_used: 2, previews_limit: 10,
+      shows_levels: pro, shows_analysis: pro, advanced_journal: pro, pro_price_usdt: 10, credits_per_purchase: 30, hours_per_credit: 24 };
+  };
+  const fail = (message) => ({ data: null, error: { message } });
+  const rpcs = {
+    my_entitlement: () => ({ data: entitlement(), error: null }),
+    start_payment: ({ p_network }) => {
+      const net = tables.payment_networks.find((n) => n.id === p_network && n.enabled);
+      if (!net) return fail('This payment network is not open.');
+      const open = tables.payment_claims.find((c) => c.user_id === current.user.id && c.network === p_network && c.status === 'awaiting');
+      if (open) return { data: open, error: null };
+      const row = { id: `claim-${nextId++}`, user_id: current.user.id, network: p_network, amount_usdt: 10.37, credits: 30, receiving_address: net.receiving_address, tx_hash: null, status: 'awaiting', expires_at: new Date(Date.now() + 86400e3).toISOString(), created_at: new Date().toISOString(), submitted_at: null, admin_note: '' };
+      tables.payment_claims.push(row);
+      return { data: row, error: null };
+    },
+    submit_payment_claim: ({ p_claim, p_tx_hash }) => {
+      const c = tables.payment_claims.find((x) => x.id === p_claim);
+      const hash = String(p_tx_hash).trim();
+      if (!/^(0x)?[0-9a-fA-F]{64}$/.test(hash)) return fail('That does not look like a transaction hash for this network.');
+      if (tables.payment_claims.some((x) => x.tx_hash && x.tx_hash.toLowerCase() === hash.toLowerCase())) return fail('This transaction has already been claimed.');
+      Object.assign(c, { tx_hash: hash, status: 'pending', submitted_at: new Date().toISOString() });
+      return { data: c, error: null };
+    },
+    admin_overview: () => (PLAN === 'admin' ? { data: { revenue_usdt: 10.37, approved_payments: 1, pending_claims: tables.payment_claims.filter((c) => c.status === 'pending').length, awaiting_payments: 0, active_subscribers: 1, users: 3 }, error: null } : fail('Administrators only.')),
+    admin_list_claims: ({ p_status }) => ({ data: tables.payment_claims.filter((c) => p_status === 'all' ? c.status !== 'awaiting' : c.status === p_status).map((c) => ({ ...c, email: 'customer@example.com', explorer_tx_url: 'https://explorer.test/tx/' })), error: null }),
+    admin_review_claim: ({ p_id, p_approve, p_note }) => {
+      const c = tables.payment_claims.find((x) => x.id === p_id);
+      if (p_approve && !c.onchain_verified_at) return fail('Credits can only be added after the on-chain check passes.');
+      Object.assign(c, { status: p_approve ? 'approved' : 'rejected', admin_note: p_note });
+      return { data: c, error: null };
+    },
+    admin_list_users: () => ({ data: [{ user_id: 'user-9', email: 'customer@example.com', created_at: new Date().toISOString(), pro_until: null, is_admin: false }], error: null }),
+    admin_grant_credits: ({ p_credits }) => { window.__granted = p_credits; return { data: new Date().toISOString(), error: null }; },
+    admin_update_settings: ({ p }) => { Object.assign(tables.app_settings[0], p); return { data: tables.app_settings[0], error: null }; },
+    admin_set_network: ({ p_id, p_enabled, p_verified, p_token_contract, p_token_decimals }) => {
+      const n = tables.payment_networks.find((x) => x.id === p_id);
+      const next = { ...n, verified: p_verified, token_contract: p_token_contract || null, token_decimals: p_token_decimals, enabled: p_enabled };
+      if (next.enabled && !(next.verified && next.auto_verify && next.token_contract && next.token_decimals !== null)) return fail('A network can only be switched on when it has an automatic check, is marked verified, and has a token contract and decimals.');
+      Object.assign(n, next);
+      return { data: n, error: null };
+    },
+  };
+
   return {
+    rpc: async (name, args = {}) => (rpcs[name] ? rpcs[name](args) : { data: null, error: { code: 'PGRST202', message: `Could not find the function public.${name}` } }),
     auth: {
+      async getSession() { return { data: { session: current }, error: null }; },
       onAuthStateChange(cb) {
         listeners.add(cb);
         setTimeout(() => cb('INITIAL_SESSION', current), 0);

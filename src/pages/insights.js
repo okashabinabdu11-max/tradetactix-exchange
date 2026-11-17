@@ -9,6 +9,7 @@ import { sessionStatus } from '../lib/sessions.js';
 import { MIN_REWARD_TO_RISK } from '../lib/risk.js';
 import { usd, price, escapeHtml } from '../lib/format.js';
 import { signed, signedR, tone, statsMarkup, calendarMarkup } from './journal.js';
+import { upgradePanel } from './signalView.js';
 
 const none = '<span class="empty-value">—</span>';
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -35,6 +36,12 @@ function tradesView({ title, intro, initial = {}, render, onAction }) {
       title,
       html: `${head}<section class="panel limits"><p class="result-empty">${text}</p>${isSupabaseConfigured && ready ? '<a class="button button-quiet" href="#/profile">Sign in</a>' : ''}</section>`,
     };
+  }
+
+  // The advanced journal is a Pro feature. These pages only read the user's own
+  // trades, so this is a product limit rather than a security boundary.
+  if (session.get().entitlement && session.get().entitlement.advanced_journal === false) {
+    return { title, html: `${head}${upgradePanel(title)}` };
   }
 
   return {

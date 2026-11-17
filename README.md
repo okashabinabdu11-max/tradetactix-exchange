@@ -11,7 +11,7 @@ An AI-assisted XAUUSD (gold) trading platform built around one plan:
 
 Every trade must offer at least 1:3 reward-to-risk.
 
-## Status: Stage 6 of 10
+## Status: Stage 7 of 10
 
 Built so far: the frontend foundation, sign-in with saved risk limits, and the
 trade journal. **No broker account is connected yet**, and the app shows empty states rather than sample numbers. Live trading
@@ -44,6 +44,29 @@ What works today:
 
 Roadmap: see `src/data/plan.js` (`STAGES`) or the System page in the app.
 
+## Plans and payments (Stage 7)
+
+- **Free:** signal state, and for a BUY or SELL the direction and timeframe
+  only, for 10 different signals a month. Basic journal.
+- **Pro:** full signals with entry, stop-loss and take-profit, analysis and the
+  advanced journal. 1 credit = 24 hours; a purchase is 30 credits for 10 USDT
+  (all adjustable in Admin).
+- Signals are gated on the server (`api/signal.js`, `api/_lib/gate.js`). The
+  browser never receives entry, stop or target unless the plan allows it.
+- **Payment flow:** the customer picks an open network and gets a unique exact
+  amount (price plus a few cents), pays the stored address, then submits the
+  transaction hash. An administrator runs the on-chain check
+  (`api/verify-payment.js`, `api/_lib/chain.js`), which verifies the chain,
+  token contract, recipient, exact amount, confirmations and timing, and only
+  then can approve. Credits are added by the database on approval.
+- **Test mode:** every network starts closed. A network can be opened only when
+  it has an automatic check (BEP20, TRC20, Plasma; not Aptos yet), its token
+  contract and decimals are set, and it is marked verified after a real test
+  payment passes in Admin > Test a transaction.
+- Server environment variables: `TWELVEDATA_API_KEY`, `CANDLES_KEY` (any long
+  random string), optional `BSC_RPC_URL`, `PLASMA_RPC_URL`, `TRON_API_URL`,
+  `TRONGRID_API_KEY`.
+
 ## Database setup (once)
 
 1. In Supabase, open **SQL Editor** and run each file in
@@ -69,7 +92,8 @@ src/state/            signed-in user and saved limits
 src/pages/            dashboard, risk calculator, other pages
 src/ui/               shell and icons
 src/styles/app.css    design system
-tests/                unit tests (node --test) and a Supabase test double
+tests/                unit tests (node --test), a Supabase test double, and
+                      tests/db/ SQL behaviour tests for the migrations
 supabase/migrations/  database scripts
 legacy/exchange-demo/ the earlier crypto-exchange demo, archived, not deployed
 ```

@@ -40,14 +40,20 @@ async function fetchRiskSettings() {
   return { riskSettings: data ? fromRow(data) : null, settingsError: null };
 }
 
+/** Plan, credits and feature access. Null when the plans tables are not set up or cannot be read. */
+async function fetchEntitlement() {
+  const { data, error } = await client.rpc('my_entitlement');
+  return error || !data?.signed_in ? null : data;
+}
+
 async function applyUser(rawUser) {
   if (!rawUser) {
-    setSession({ ready: true, user: null, riskSettings: null, settingsError: null });
+    setSession({ ready: true, user: null, riskSettings: null, settingsError: null, entitlement: null });
     return;
   }
   const user = { id: rawUser.id, email: rawUser.email };
-  const settings = await fetchRiskSettings();
-  setSession({ ready: true, user, ...settings });
+  const [settings, entitlement] = await Promise.all([fetchRiskSettings(), fetchEntitlement()]);
+  setSession({ ready: true, user, ...settings, entitlement });
 }
 
 export function initBackend() {
@@ -188,4 +194,67 @@ export async function deleteTrade(id) {
   if (!client) return { ok: false, message: NOT_CONFIGURED };
   const { error } = await client.from('trades').delete().eq('id', id);
   return error ? tradeError(error) : { ok: true };
+}
+
+// ---------- Plans, payments and administration ----------
+
+/** The signed-in user's token, sent to our own server functions to prove who is asking. */
+export async function getAccessToken() {
+  if (!client) return null;
+  const { data } = await client.auth.getSession();
+  return data?.session?.access_token ?? null;
+}
+
+async function call(name, args) {
+  if (!client) return { ok: false, message: NOT_CONFIGURED };
+  const { data, error } = await client.rpc(name, args);
+  if (error) {
+    const missing = error.code === 'PGRST202' || /could not find the function/i.test(error.message || '');
+    return { ok: false, message: missing ? 'The plans and payments tables have not been created in the database yet.' : friendly(error) };
+  }
+  return { ok: true, data };
+}
+
+async function rows(query) {
+  if (!client) return { ok: false, message: NOT_CONFIGURED };
+  const { data, error } = await query(client);
+  if (error) return { ok: false, message: isMissingTable(error) ? 'The plans and payments tables have not been created in the database yet.' : friendly(error) };
+  return { ok: true, data: data || [] };
+}
+
+export async function refreshEntitlement() {
+  if (!client || !session.get().user) return null;
+  const entitlement = await fetchEntitlement();
+  setSession({ entitlement }, { silent: true });
+  return entitlement;
+}
+
+export const getPlanSettings = () => rows((c) => c.from('app_settings').select('*')).then((r) => (r.ok ? { ok: true, data: r.data[0] || null } : r));
+/** Customers see only networks that are switched on; administrators see all. */
+export const listNetworks = () => rows((c) => c.from('payment_networks').select('*').order('sort', { ascending: true }));
+export const listMyClaims = () => rows((c) => c.from('payment_claims').select('*').eq('user_id', session.get().user?.id).order('created_at', { ascending: false }));
+export const submitClaim = (claimId, txHash) => call('submit_payment_claim', { p_claim: claimId, p_tx_hash: txHash });
+
+export const adminOverview = () => call('admin_overview');
+export const adminListClaims = (status = 'pending') => call('admin_list_claims', { p_status: status });
+export const adminReviewClaim = (id, approve, note = '') => call('admin_review_claim', { p_id: id, p_approve: approve, p_note: note });
+export const adminListUsers = (search = '') => call('admin_list_users', { p_search: search });
+export const adminGrantCredits = (userId, credits, note = '') => call('admin_grant_credits', { p_user: userId, p_credits: credits, p_note: note });
+export const adminUpdateSettings = (patch) => call('admin_update_settings', { p: patch });
+export const adminSetNetwork = (id, { enabled, verified, tokenContract, tokenDecimals, explorerTxUrl }) =>
+  call('admin_set_network', { p_id: id, p_enabled: enabled, p_verified: verified, p_token_contract: tokenContract, p_token_decimals: tokenDecimals, p_explorer_tx_url: explorerTxUrl });
+export const startPayment = (network) => call('start_payment', { p_network: network });
+
+/** Runs the server's on-chain check. Administrators only; the server enforces it. */
+export async function adminVerifyPayment(body) {
+  const token = await getAccessToken();
+  if (!token) return { ok: false, message: 'Sign in first.' };
+  try {
+    const res = await fetch('/api/verify-payment', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
+    const data = await res.json();
+    if (!res.ok) return { ok: false, message: data.message || ({ admins_only: 'Administrators only.', bad_hash: 'That is not a transaction hash.', not_pending: 'This claim is no longer waiting for review.' }[data.error] || 'The check could not run.') };
+    return { ok: true, data };
+  } catch {
+    return { ok: false, message: 'The check service could not be reached.' };
+  }
 }
