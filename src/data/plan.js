@@ -32,8 +32,8 @@ export const SIGNAL_STATES = [
   { id: 'no-setup', label: 'NO VALID SETUP — AI IS WAITING.', tone: 'muted', meaning: 'Nothing meets the plan right now. No signal is ever made up to fill the gap.' },
   { id: 'locked', label: 'Signal active', tone: 'gold', meaning: 'A valid setup is confirmed. Your plan decides how much of it you can see.' },
   { id: 'waiting', label: 'Waiting for confirmation', tone: 'gold', meaning: 'A level is in play and the 15M retest has not confirmed yet.' },
-  { id: 'buy', label: 'Buy', tone: 'buy', meaning: 'All required timeframes agree on a long with at least 1:3.' },
-  { id: 'sell', label: 'Sell', tone: 'sell', meaning: 'All required timeframes agree on a short with at least 1:3.' },
+  { id: 'buy', label: 'Buy', tone: 'buy', meaning: 'All required timeframes agree on a long with at least 1:3 and a stop-loss of 9 dollars or less.' },
+  { id: 'sell', label: 'Sell', tone: 'sell', meaning: 'All required timeframes agree on a short with at least 1:3 and a stop-loss of 9 dollars or less.' },
 ];
 
 export const SECTIONS = [

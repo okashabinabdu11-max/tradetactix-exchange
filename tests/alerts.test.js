@@ -26,6 +26,7 @@ test('alert text carries the real levels and the disclaimer', () => {
   assert.match(t, /Stop-loss: <b>3996.20<\/b>/);
   assert.match(t, /Take-profit: <b>4099.50<\/b>/);
   assert.match(t, /1:7.7/);
+  assert.match(t, /At 0.01 lot \(1 oz\): risk <b>\$11.80<\/b>, reward <b>\$91.50<\/b>/);
   assert.match(t, /4H support 4000.50/);
   assert.match(t, /confirmed at 11:45 UTC/);
   assert.match(t, /not financial advice/);

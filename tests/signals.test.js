@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { atr, pivots, closedOnly, tradingOnly, findLevels, findLiquidity, evaluate, INTERVAL_MS } from '../src/lib/signals.js';
+import { atr, pivots, closedOnly, tradingOnly, findLevels, findLiquidity, evaluate, INTERVAL_MS, PARAMS } from '../src/lib/signals.js';
 
 // Synthetic candles for testing the rules only. They are never shown in the app.
 const NOW = Date.UTC(2026, 10, 18, 12, 0, 0); // a Wednesday
@@ -68,11 +68,13 @@ function m15With(tail, shape) {
 const longTail = [4009, 4008, 4007, 4004, 4001, 4003, 4008];
 const longShape = (k) => (k === 4 ? { l: 3997 } : k === 6 ? { o: 4003, c: 4008 } : null);
 
-test('full long setup gives a BUY with stop beyond the sweep and at least 1:3', () => {
+test('full long setup gives a BUY with stop beyond the 15M retest and at least 1:3', () => {
   const r = evaluate({ h4: H4, h1: H1, m15: m15With(longTail, longShape), now: NOW });
   assert.equal(r.state, 'buy');
   assert.equal(r.entry, 4008);
-  assert.ok(r.stop < 3997 && r.stop > 3995);
+  // The stop sits just below the 4000.50 level, not under the 3997 sweep wick.
+  assert.ok(r.stop < 4000.5 && r.stop > 3999.5, `stop ${r.stop}`);
+  assert.ok(r.entry - r.stop <= 9, 'never more than the 9-dollar maximum');
   assert.ok(Math.abs(r.target - 4099.5) < 0.01);
   assert.ok(r.rr >= 3);
   assert.equal(r.checks.h4.ok && r.checks.h1.ok && r.checks.m15.ok, true);
@@ -127,7 +129,7 @@ test('mirror image gives a SELL', () => {
   const r = evaluate({ h4: flip(H4), h1: flip(H1), m15: flip(m15With(longTail, longShape)), now: NOW });
   assert.equal(r.state, 'sell');
   assert.equal(r.entry, 4092);
-  assert.ok(r.stop > 4103 && r.target < r.entry && r.rr >= 3);
+  assert.ok(r.stop > 4099.5 && r.stop < 4100.5 && r.target < r.entry && r.rr >= 3, `stop ${r.stop}`);
 });
 
 test('missing or stale data is OFFLINE, never a guess', () => {
@@ -161,4 +163,17 @@ test('the entry is the first close back after the retest, taken at the level', (
   const later = evaluate({ h4: H4, h1: H1, m15: m15With([...longTail, 4009], (k) => longShape(k) || (k >= 7 ? { l: 4008 } : null)), now: NOW });
   assert.equal(later.state, 'buy');
   assert.equal(later.entry, 4008);
+});
+
+test('a setup whose stop would be wider than the maximum is not a signal', () => {
+  // Same setup, but the confirming candle dips far below the level before closing back up.
+  const wide = m15With(longTail, (k) => (k === 4 ? { l: 3997 } : k === 6 ? { o: 4003, c: 4008, l: 3985 } : null));
+  const r = evaluate({ h4: H4, h1: H1, m15: wide, now: NOW });
+  assert.equal(r.state, 'no-setup');
+  assert.match(r.reason, /more than the 9.00 maximum/);
+  assert.equal(r.entry, undefined);
+  // A larger maximum lets the same setup through.
+  const loose = evaluate({ h4: H4, h1: H1, m15: wide, now: NOW, params: { ...PARAMS, maxStopUsd: 30 } });
+  assert.equal(loose.state, 'buy');
+  assert.ok(loose.entry - loose.stop > 9);
 });

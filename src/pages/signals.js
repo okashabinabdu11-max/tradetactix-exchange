@@ -42,7 +42,7 @@ export function signalsPage() {
           <li><strong>4H.</strong> A level is a price where the closing line has turned at least twice. Price must be at one.</li>
           <li><strong>1H.</strong> Liquidity is the most recent swing high and low. Price must sweep the one beyond the level.</li>
           <li><strong>15M.</strong> After the sweep, price must return to the level and a candle must close back in the trade direction.</li>
-          <li><strong>Risk.</strong> The stop goes beyond the sweep. The next 4H level must be at least ${ratio(myMinimum())} away, or there is no signal.</li>
+          <li><strong>Risk.</strong> The stop goes just beyond the 15M retest and the 4H level, and is never more than 9 dollars from the entry (9 dollars at 0.01 lot). The next 4H level must be at least ${ratio(myMinimum())} away, or there is no signal.</li>
         </ol>
         <p class="panel-note">The engine reads price only. Check the <a class="inline-link" href="#/analysis">economic calendar</a> for high-impact US news before acting. Signal history and alerts are not built yet. Prices are from Twelve Data and can differ slightly from Exness; MT5 prices arrive in Stage ${STAGE_OF.mt5}.</p>
       </section>`,

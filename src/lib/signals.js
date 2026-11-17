@@ -5,7 +5,8 @@
 //   1H  liquidity = the most recent swing high and swing low.
 //   15M entry = price sweeps the 1H liquidity, returns to the 4H level and
 //       closes back in the trade direction.
-//   Stop goes beyond the sweep. The target must offer at least 1:3.
+//   Stop goes just beyond the 15M retest and the 4H level, never more than
+//   PARAMS.maxStopUsd from the entry. The target must offer at least 1:3.
 //
 // Pure functions over candle arrays ({ t, o, h, l, c }, oldest first), so the
 // whole engine is unit tested. It reads prices; it never places a trade.
@@ -21,6 +22,10 @@ export const PARAMS = Object.freeze({
   lookback15: 16, // 15M candles examined for the sweep and retest (4 hours)
   freshBars: 2, // a confirmation older than this many candles is stale
   stopBufferAtr15: 0.1,
+  // Largest stop-loss allowed, in US dollars of price. At 0.01 lot (1 oz) on a
+  // standard account this is also the most one trade can lose. A setup whose
+  // stop would be wider is not a signal.
+  maxStopUsd: 9,
 });
 
 export const INTERVAL_MS = { '4h': 4 * 3600e3, '1h': 3600e3, '15min': 900e3 };
@@ -135,14 +140,21 @@ function evaluateDirection(dir, { level, levels, liquidity, window, atr4, atr15,
   }
 
   const entry = window[confirmIdx].c;
-  const sweepExtreme = window.slice(sweepIdx, confirmIdx + 1).reduce((m, c) => (long ? Math.min(m, c.l) : Math.max(m, c.h)), long ? Infinity : -Infinity);
-  const stop = sweepExtreme - s * atr15 * params.stopBufferAtr15;
+  // The stop protects the 15M retest: just beyond the retest-and-confirmation
+  // candles, and never inside the 4H level. Price trading back through the
+  // level is what proves the setup wrong.
+  const retestExtreme = window.slice(retestIdx, confirmIdx + 1)
+    .reduce((m, c) => (long ? Math.min(m, c.l) : Math.max(m, c.h)), long ? level.price : level.price);
+  const stop = retestExtreme - s * atr15 * params.stopBufferAtr15;
   const risk = (entry - stop) * s;
   const invalidated = window.slice(confirmIdx + 1).some((c) => beyond(extreme(c), stop));
   if (!(risk > 0) || invalidated) return { ...result, note: 'The confirmation was invalidated: price went back through the stop.' };
   result.confirm = true;
   result.passed = 3;
   Object.assign(result, { entry, stop, risk, confirmedAt: window[confirmIdx].t });
+  if (risk > params.maxStopUsd + 1e-9) {
+    return { ...result, tooWide: true, note: `A setup confirmed, but its stop-loss would be ${risk.toFixed(2)} away, more than the ${params.maxStopUsd.toFixed(2)} maximum. Skipped.` };
+  }
 
   // Target: the next 4H level in the trade direction, if it is at least 1:minRR away.
   const ahead = levels
