@@ -17,9 +17,9 @@ export function aiProviders(gatewayToken = null) {
 }
 
 /**
- * Tries each model until one answers. A model that is not usable here
- * (400/403/404/429) moves on to the next; Vercel's "credit card" refusal and
- * outages stop. Returns the reply text, or null.
+ * Tries each model until one answers. A model that is not usable here, busy or
+ * briefly down moves on to the next; Vercel's "credit card" refusal stops.
+ * Returns the reply text, or null.
  */
 export async function askAI({ system, messages, maxTokens = 450, temperature = 0.3, gatewayToken = null, timeoutMs = 25000 }) {
   for (const { url, key, model } of aiProviders(gatewayToken)) {
@@ -36,7 +36,8 @@ export async function askAI({ system, messages, maxTokens = 450, temperature = 0
     const why = String(data?.error?.message || data?.[0]?.error?.message || data?.error || '');
     console.error('ai failed', model, r.status, why.slice(0, 300));
     if (/credit card/i.test(why)) break;
-    if (![400, 403, 404, 429].includes(r.status)) break;
+    // 400/403/404: model not usable here. 429/5xx: busy or briefly down. Either way, try the next model.
+    if (![400, 403, 404, 408, 429].includes(r.status) && r.status < 500) break;
   }
   return null;
 }

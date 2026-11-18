@@ -80,3 +80,37 @@ test('news job: analyzes once with the AI, saves, then sends due outlooks once',
   const second = await runNews({ origin: 'https://x.test', broadcast, now: start + 65 * 60e3 });
   assert.equal(second.analyzed.length, 0); assert.equal(second.sent.length, 0); assert.equal(calls.filter((c) => c.includes('ff_calendar')).length, 1); // cached
 });
+
+test('a busy model falls through to the next; a busy AI far from the release waits instead of using rules', async () => {
+  process.env.ALERTS_SECRET = 's'; process.env.GEMINI_API_KEY = 'gk';
+  const ok = (data) => ({ ok: true, status: 200, json: async () => data });
+  const models = [];
+  globalThis.fetch = async (url, opt = {}) => {
+    const b = opt.body ? JSON.parse(opt.body) : {};
+    if (String(url).includes('generativelanguage')) { models.push(b.model); return models.length === 1 ? { ok: false, status: 503, json: async () => ({ error: { message: 'high demand' } }) } : ok({ choices: [{ message: { content: 'fine' } }] }); }
+    throw new Error('unexpected');
+  };
+  const { askAI } = await import('../api/_lib/ai.js');
+  assert.equal(await askAI({ system: 's', messages: [{ role: 'user', content: 'q' }] }), 'fine');
+  assert.equal(models.length, 2); assert.notEqual(models[0], models[1]);
+
+  const start = Date.parse('2026-11-20T08:00:00Z');
+  const feed = [{ title: 'CPI m/m', country: 'USD', date: '2026-11-20T13:30:00Z', impact: 'High', forecast: '0.3%', previous: '0.2%' }];
+  const saved = [];
+  globalThis.fetch = async (url, opt = {}) => {
+    const u = String(url); const body = opt.body ? JSON.parse(opt.body) : {};
+    if (u.includes('ff_calendar')) return ok(feed);
+    if (u.includes('/api/quote')) return ok({});
+    if (u.includes('generativelanguage')) return { ok: false, status: 503, json: async () => ({ error: { message: 'high demand' } }) };
+    if (u.includes('/rpc/alerts_news_missing')) return ok(body.p_keys.filter((k) => !saved.some((s) => s.p_key === k)));
+    if (u.includes('/rpc/alerts_news_save')) { saved.push(body); return ok(null); }
+    if (u.includes('/rpc/alerts_news_due')) return ok([]);
+    throw new Error(`unexpected ${u}`);
+  };
+  const { runNews, _resetNewsCache } = await import('../api/_lib/newsRun.js');
+  _resetNewsCache();
+  const far = await runNews({ origin: 'https://x.test', broadcast: async () => 0, now: start }); // 5.5 hours before
+  assert.equal(saved.length, 0); assert.equal(far.retryLater, 1);
+  const near = await runNews({ origin: 'https://x.test', broadcast: async () => 0, now: Date.parse('2026-11-20T12:30:00Z') }); // 60 min before
+  assert.equal(saved.length, 1); assert.equal(saved[0].p_source, 'rules'); assert.equal(near.analyzed[0].source, 'rules');
+});

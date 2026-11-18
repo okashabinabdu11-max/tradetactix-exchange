@@ -8,6 +8,8 @@ import { serverRpc } from './telegram.js';
 import { askAI } from './ai.js';
 import { CALENDAR_URL, ANALYZE_BEFORE_MS, highImpactUsd, NEWS_SYSTEM, newsPrompt, parseExpectation, ruleExpectation, scenarios, newsMessage } from './news.js';
 
+// Use the rules instead of the AI only when the release is this close (the send window is 60 minutes).
+export const RULES_ONLY_WITHIN_MS = 75 * 60e3;
 const FEED_TTL_MS = 30 * 60e3; // the feed changes rarely; do not ask for it every 5 minutes
 let cache = { at: 0, feed: null };
 
@@ -46,6 +48,8 @@ export async function runNews({ origin, broadcast, now = Date.now(), maxAnalyses
         try { text = await askAI({ system: NEWS_SYSTEM, messages: [{ role: 'user', content: newsPrompt(e, ctx) }], maxTokens: 500, timeoutMs: 25000 }); } catch (err) { aiError = err?.name === 'TimeoutError' ? 'timeout' : String(err?.message || err); }
         const fromAi = parseExpectation(text);
         if (!fromAi) console.error('news ai unusable', e.title, aiError || (text ? `not JSON: ${text.slice(0, 200)}` : 'no reply'));
+        // Busy AI and plenty of time left: ask again at the next run instead of settling for the rules.
+        if (!fromAi && Date.parse(e.startsAt) - now > RULES_ONLY_WITHIN_MS) { out.retryLater = (out.retryLater || 0) + 1; continue; }
         const x = fromAi || ruleExpectation(e);
         const sc = scenarios(e.title);
         await serverRpc('alerts_news_save', {
