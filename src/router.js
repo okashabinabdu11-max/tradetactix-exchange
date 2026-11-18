@@ -6,8 +6,8 @@ export function parseRoute(hash, knownIds, fallback = 'dashboard') {
   return knownIds.includes(id) ? id : fallback;
 }
 
-export function startRouter(knownIds, onChange) {
-  const handle = () => onChange(parseRoute(window.location.hash, knownIds));
+export function startRouter(knownIds, onChange, fallback = 'home') {
+  const handle = () => onChange(parseRoute(window.location.hash, knownIds, fallback));
   window.addEventListener('hashchange', handle);
   handle();
 }

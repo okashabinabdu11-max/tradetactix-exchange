@@ -667,3 +667,41 @@ a { color: inherit; text-decoration: none; }
 .gate-mark { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 12px; background: var(--brand-red); color: #000; font-family: var(--font-display); font-weight: 800; font-size: 32px; }
 .gate-steps { display: grid; gap: 6px; padding-left: 20px; list-style: decimal; color: var(--text); }
 .gate .form-actions .button { margin-top: 0; }
+
+/* ---------- Homepage (signed-out visitors) ---------- */
+body.is-home .tabbar, body.is-home .sidebar, body.is-home .topbar { display: none; }
+.home-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 1080px; margin: 0 auto 20px; }
+.home-bar-links { display: flex; align-items: center; gap: 8px; }
+.home-bar-links .button { min-height: 40px; height: 40px; margin: 0; padding: 0 14px; }
+.home-cta { flex-wrap: wrap; }
+.home-signed-in { display: grid; gap: 8px; }
+body.is-home .main { padding-bottom: 32px; }
+.home { display: grid; gap: 28px; max-width: 1080px; margin: 0 auto; }
+.home-hero { display: grid; gap: 16px; padding-top: 8px; }
+.home-pair { font-size: 13.5px; font-weight: 600; color: var(--muted); }
+.home-hero h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(40px, 11vw, 76px); line-height: 0.98; letter-spacing: -0.01em; }
+.home-lede { font-size: 17px; color: var(--muted); max-width: 34em; }
+.home-stages { display: flex; flex-wrap: wrap; gap: 8px 16px; padding-top: 4px; }
+.home-stages li { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; }
+.home-dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
+.home-auth { display: grid; gap: 12px; }
+.home-auth h2, .home-join h2 { font-size: 20px; font-weight: 700; }
+.home-points { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
+.home-points > div { background: var(--panel); padding: 18px; display: grid; gap: 6px; }
+.home-points h3 { font-size: 16px; font-weight: 700; }
+.home-points p, .home-join li, .home-foot { color: var(--muted); font-size: 15px; }
+.home-join { display: grid; gap: 12px; }
+.home-join ol { display: grid; gap: 10px; counter-reset: step; }
+.home-join li { counter-increment: step; display: grid; grid-template-columns: 32px 1fr; align-items: baseline; }
+.home-join li::before { content: counter(step); font-family: var(--font-display); font-weight: 800; font-size: 22px; color: var(--text); }
+.home-join strong { color: var(--text); }
+.home-foot { font-size: 13px; border-top: 1px solid var(--line); padding-top: 16px; }
+@media (min-width: 960px) {
+  body.is-home #app { grid-template-columns: 1fr; }
+  .home { grid-template-columns: 1.15fr 1fr; column-gap: 56px; row-gap: 40px; align-items: start; padding-top: 24px; }
+  .home-hero { grid-column: 1; }
+  .home-auth { grid-column: 2; grid-row: 1 / span 2; }
+  .home-points { grid-column: 1 / -1; grid-template-columns: repeat(3, 1fr); }
+  .home-join, .home-foot { grid-column: 1 / -1; }
+  .home-join ol { grid-template-columns: repeat(3, 1fr); gap: 24px; }
+}

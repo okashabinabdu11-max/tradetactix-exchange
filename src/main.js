@@ -5,6 +5,7 @@ import { clearSignal } from './services/market.js';
 import { plansPage } from './pages/plans.js';
 import { adminPage } from './pages/admin.js';
 import { approvalGatePage } from './pages/gate.js';
+import { homePage } from './pages/home.js';
 import { dashboardPage } from './pages/dashboard.js';
 import { riskPage } from './pages/risk.js';
 import { plannedPage, morePage, systemPage } from './pages/other.js';
@@ -34,7 +35,7 @@ const builtPages = {
   more: morePage,
 };
 
-const routeIds = [...SECTIONS.map((s) => s.id), 'more'];
+const routeIds = [...SECTIONS.map((s) => s.id), 'more', 'home'];
 const OPEN_ROUTES = ['plans', 'profile', 'more', 'admin'];
 
 const root = document.getElementById('app');
@@ -51,8 +52,12 @@ function render(routeId, { keepScroll = false } = {}) {
   const isAdmin = Boolean(ent?.is_admin);
   const approved = ent?.plan === 'pro';
   const section = SECTIONS.find((s) => s.id === routeId);
+  // Everyone starts on the homepage; its Dashboard button opens the app and its menu.
+  const isHome = routeId === 'home';
+  document.body.classList.toggle('is-home', isHome);
   let page;
-  if (section?.adminOnly && !isAdmin) page = approvalGatePage(approved ? 'Dashboard' : 'Get approved');
+  if (isHome) page = homePage();
+  else if (section?.adminOnly && !isAdmin) page = approvalGatePage(approved ? 'Dashboard' : 'Get approved');
   else if (!OPEN_ROUTES.includes(routeId) && !approved) page = approvalGatePage('Get approved');
   else page = builtPages[routeId] ? builtPages[routeId]() : plannedPage(routeId);
   main.innerHTML = page.html;

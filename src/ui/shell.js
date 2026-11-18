@@ -5,7 +5,7 @@ import { icon } from './icons.js';
 const MOBILE_TABS = ['dashboard', 'signals', 'risk', 'journal'];
 
 const brand = `
-  <a class="brand" href="#/dashboard" aria-label="TradeTactix AI dashboard">
+  <a class="brand" href="#/home" aria-label="TradeTactix AI home">
     <span class="brand-mark" aria-hidden="true">T</span>
     <span class="brand-name">TradeTactix <span class="brand-ai">AI</span></span>
   </a>`;
