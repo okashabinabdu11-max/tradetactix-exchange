@@ -14,17 +14,17 @@ import { getChartAccess, runBacktest } from '../services/backend.js';
 import { escapeHtml } from '../lib/format.js';
 import { t } from '../lib/i18n.js';
 
-import { CHART_VIEWS, INDICATORS, COLOR_PRESETS, resolveColors, widgetConfig } from '../lib/chartConfig.js';
+import { CHART_VIEWS, INDICATORS, COLOR_PRESETS, SYMBOL_GROUPS, ALL_SYMBOLS, CHART_SYMBOL, cleanSymbol, resolveColors, widgetConfig } from '../lib/chartConfig.js';
 
-export { CHART_SYMBOL, CHART_VIEWS, INDICATORS, COLOR_PRESETS, resolveColors, allowedStudies, widgetConfig } from '../lib/chartConfig.js';
+export { CHART_SYMBOL, SYMBOL_GROUPS, cleanSymbol, CHART_VIEWS, INDICATORS, COLOR_PRESETS, resolveColors, allowedStudies, widgetConfig } from '../lib/chartConfig.js';
 
 // ---------- Saved choices (this device only) ----------
 const KEY = 'tt-chart';
 function loadPrefs() {
   try {
     const p = JSON.parse(localStorage.getItem(KEY) || '{}');
-    return { view: CHART_VIEWS.some((v) => v.id === p.view) ? p.view : '4h', colors: p.colors || { preset: 'app' }, studies: Array.isArray(p.studies) ? p.studies : [] };
-  } catch { return { view: '4h', colors: { preset: 'app' }, studies: [] }; }
+    return { symbol: cleanSymbol(p.symbol) || CHART_SYMBOL, view: CHART_VIEWS.some((v) => v.id === p.view) ? p.view : '4h', colors: p.colors || { preset: 'app' }, studies: Array.isArray(p.studies) ? p.studies : [] };
+  } catch { return { symbol: CHART_SYMBOL, view: '4h', colors: { preset: 'app' }, studies: [] }; }
 }
 function savePrefs(p) { try { localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* private mode */ } }
 
@@ -55,6 +55,12 @@ export function backtestMarkup(r) {
     <p class="panel-note">${t('Backtest on past candles from Twelve Data, not live results. Win rate counts TP and SL only. The news pause is not replayed. Past results do not promise future ones.')}</p>`;
 }
 
+function symbolOptions(current) {
+  const known = ALL_SYMBOLS.some((x) => x.id === current);
+  const groups = SYMBOL_GROUPS.map((g) => `<optgroup label="${t(g.label)}">${g.items.map((x) => `<option value="${x.id}" ${x.id === current ? 'selected' : ''}>${escapeHtml(x.label)}</option>`).join('')}</optgroup>`).join('');
+  return (known ? '' : `<option value="${escapeHtml(current)}" selected>${escapeHtml(current)}</option>`) + groups;
+}
+
 export function chartPage() {
   const prefs = loadPrefs();
   const tabs = CHART_VIEWS.map((v) => `
@@ -72,6 +78,14 @@ export function chartPage() {
       <p class="pc-note">${t('For a better experience, use a PC.')}</p>
       <section class="chart-shell" data-chart-shell>
         <div class="chart-bar">
+          <div class="symbol-row">
+            <label class="sr-only" for="chart-symbol">${t('Pair')}</label>
+            <select id="chart-symbol" class="symbol-select" data-symbol>${symbolOptions(prefs.symbol)}</select>
+            <form class="symbol-search" data-symbol-form novalidate>
+              <input name="q" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="${t('Other pair, e.g. USDZAR')}" aria-label="${t('Other pair')}" maxlength="40">
+              <button class="ctool" type="submit">${t('Open')}</button>
+            </form>
+          </div>
           <div class="tf-tabs" role="tablist" aria-label="${t('Timeframe')}">${tabs}</div>
           <div class="chart-tools">
             <button class="ctool" type="button" data-panel="studies" aria-expanded="false">${t('Indicators')}</button>
@@ -89,7 +103,7 @@ export function chartPage() {
         <h2 class="panel-title">${t('Backtest')}</h2>
         <div data-backtest-body><p class="panel-note">${t('Checking your plan…')}</p></div>
       </section>
-      <p class="panel-note">${t('Prices on this chart come from OANDA through TradingView, so they can differ slightly from your Exness quotes. Times are in Ethiopia time. Drawings are not saved, and the app does not read this chart: the signal engine uses its own price feed.')}</p>`,
+      <p class="panel-note">${t("Prices on this chart come from TradingView's data sources, so they can differ slightly from your Exness quotes. Times are in Ethiopia time. Drawings are not saved, and the app does not read this chart: the signal engine uses its own price feed.")}</p>`,
     mount(root) {
       const host = root.querySelector('#tv-chart');
       const shell = root.querySelector('[data-chart-shell]');
@@ -99,7 +113,7 @@ export function chartPage() {
 
       const draw = () => {
         const view = CHART_VIEWS.find((v) => v.id === prefs.view) || CHART_VIEWS[0];
-        loadTradingViewWidget(host, 'embed-widget-advanced-chart.js', widgetConfig(view, { pro, colors: resolveColors(prefs.colors, currentTheme()), studies: prefs.studies }), t('The TradingView chart could not load.'));
+        loadTradingViewWidget(host, 'embed-widget-advanced-chart.js', widgetConfig(view, { pro, symbol: prefs.symbol, colors: resolveColors(prefs.colors, currentTheme()), studies: prefs.studies }), t('The TradingView chart could not load.'));
       };
       const redraw = () => { clearTimeout(drawTimer); drawTimer = setTimeout(draw, 150); };
 
@@ -140,11 +154,12 @@ export function chartPage() {
       const backtestBody = root.querySelector('[data-backtest-body]');
       const renderBacktest = () => {
         if (!pro) {
-          backtestBody.innerHTML = `<div class="locked-card">${LOCK}<div><p>${t('Replay the TradeTactix plan on up to 50 days of real past candles: win rate, TP and SL count, pips and every trade.')}</p>
+          backtestBody.innerHTML = `<div class="locked-card">${LOCK}<div><p>${t('Replay the TradeTactix plan on up to 50 days of real past gold candles: win rate, TP and SL count, pips and every trade.')}</p>
             <a class="button button-primary" href="#/plans" data-chart-pro-link>${t('Get Chart Pro')}</a></div></div>`;
           return;
         }
         backtestBody.innerHTML = `
+          <p class="panel-note bt-scope">${t('The backtest runs the TradeTactix plan on XAUUSD (gold), the pair the strategy is built for.')}</p>
           <form class="bt-form" data-bt-form>
             <label>${t('Period')} <select name="days"><option value="7">${t('7 days')}</option><option value="14">${t('14 days')}</option><option value="30" selected>${t('30 days')}</option><option value="50">${t('50 days')}</option></select></label>
             <button class="button button-primary" type="submit">${t('Run backtest')}</button>
@@ -187,7 +202,13 @@ export function chartPage() {
           b.textContent = on ? t('Exit full screen') : t('Full screen');
         }
       };
+      const setSymbol = (sym) => {
+        prefs.symbol = sym; savePrefs(prefs);
+        root.querySelector('[data-symbol]').innerHTML = symbolOptions(sym);
+        draw();
+      };
       const onChange = (e) => {
+        if (e.target.matches('[data-symbol]')) { setSymbol(e.target.value); return; }
         const box = e.target.closest('[data-study]');
         if (box) {
           const id = box.dataset.study;
@@ -205,6 +226,15 @@ export function chartPage() {
         }
       };
       const onSubmit = async (e) => {
+        const sform = e.target.closest('[data-symbol-form]');
+        if (sform) {
+          e.preventDefault();
+          const sym = cleanSymbol(sform.q.value);
+          if (!sym) { sform.q.setCustomValidity(t('Type a pair like EURUSD or BINANCE:BTCUSDT.')); sform.q.reportValidity(); return; }
+          sform.q.setCustomValidity(''); sform.q.value = '';
+          setSymbol(sym);
+          return;
+        }
         const form = e.target.closest('[data-bt-form]');
         if (!form) return;
         e.preventDefault();

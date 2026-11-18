@@ -948,3 +948,10 @@ html.chart-full-open, html.chart-full-open body { overflow: hidden; }
 .chart-pro { margin-top: 18px; }
 .chart-pro .plan-list { margin: 4px 0 14px; }
 .chart-pro .pay-method strong { font-weight: 700; }
+
+.symbol-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.symbol-select { flex: 1 1 180px; min-height: 42px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--raised); color: var(--text); font-weight: 700; font-size: 15px; }
+.symbol-search { display: flex; gap: 6px; flex: 1 1 200px; }
+.symbol-search input { flex: 1; min-width: 0; min-height: 42px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--panel); color: var(--text); font-size: 15px; }
+.bt-scope { margin: 0 0 10px; }
+.chart-shell.is-full .symbol-row { flex: 1 1 100%; }

@@ -87,6 +87,18 @@ test('chart views follow the plan: 4H line chart, then candles', () => {
   assert.equal(widgetConfig(CHART_VIEWS[2]).style, '1'); // candles
   assert.equal(widgetConfig(CHART_VIEWS[1]).symbol, 'OANDA:XAUUSD');
   assert.equal(widgetConfig(CHART_VIEWS[1]).allow_symbol_change, false);
+  assert.equal(widgetConfig(CHART_VIEWS[1], { pro: true }).allow_symbol_change, true);
+});
+
+import { cleanSymbol, ALL_SYMBOLS } from '../src/lib/chartConfig.js';
+test('chart pairs: list covers forex, metals, indices, crypto; typed symbols are cleaned', () => {
+  assert.ok(ALL_SYMBOLS.length >= 50);
+  assert.equal(cleanSymbol('eurusd'), 'FX:EURUSD');
+  assert.equal(cleanSymbol('EUR/USD'), 'FX:EURUSD');
+  assert.equal(cleanSymbol('binance:btcusdt'), 'BINANCE:BTCUSDT');
+  assert.equal(cleanSymbol('<script>'), null);
+  assert.equal(widgetConfig(CHART_VIEWS[1], { symbol: 'FX:GBPJPY' }).symbol, 'FX:GBPJPY');
+  assert.equal(widgetConfig(CHART_VIEWS[1], { symbol: 'x"><img>' }).symbol, 'OANDA:XAUUSD');
 });
 
 import { CALENDAR_CONFIG, NEWS_CONFIG } from '../src/data/widgets.js';

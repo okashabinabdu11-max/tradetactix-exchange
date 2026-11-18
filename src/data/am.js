@@ -301,4 +301,10 @@ export const AM = {
   'Not approved': 'አልጸደቀም',
   '1 day': '1 ቀን',
   'days': 'ቀናት',
+  'Pair': 'ጥንድ', 'Other pair': 'ሌላ ጥንድ', 'Other pair, e.g. USDZAR': 'ሌላ ጥንድ፣ ለምሳሌ USDZAR', 'Open': 'ክፈት',
+  'Metals': 'ብረቶች', 'Major pairs': 'ዋና ጥንዶች', 'Cross pairs': 'ክሮስ ጥንዶች', 'Exotic pairs': 'ኤክዞቲክ ጥንዶች', 'Indices': 'ኢንዴክሶች', 'Oil': 'ነዳጅ', 'Crypto': 'ክሪፕቶ',
+  'Type a pair like EURUSD or BINANCE:BTCUSDT.': 'እንደ EURUSD ወይም BINANCE:BTCUSDT ያለ ጥንድ ይጻፉ።',
+  'The backtest runs the TradeTactix plan on XAUUSD (gold), the pair the strategy is built for.': 'ባክቴስቱ የTradeTactix ፕላንን ስትራቴጂው በተሠራለት XAUUSD (ወርቅ) ላይ ያካሂዳል።',
+  'Replay the TradeTactix plan on up to 50 days of real past gold candles: win rate, TP and SL count, pips and every trade.': 'የTradeTactix ፕላንን እስከ 50 ቀናት ባሉ እውነተኛ ያለፉ የወርቅ ካንድሎች ላይ ይሞክሩ፦ የአሸናፊነት መጠን፣ የTP እና SL ብዛት፣ ፒፕስ እና እያንዳንዱ ንግድ።',
+  "Prices on this chart come from TradingView's data sources, so they can differ slightly from your Exness quotes. Times are in Ethiopia time. Drawings are not saved, and the app does not read this chart: the signal engine uses its own price feed.": 'በዚህ ቻርት ላይ ያሉ ዋጋዎች ከTradingView የመረጃ ምንጮች ይመጣሉ፣ ስለዚህ ከExness ዋጋዎችዎ ትንሽ ሊለዩ ይችላሉ። ሰዓቶቹ በኢትዮጵያ ሰዓት ናቸው። ስዕሎች አይቀመጡም፣ እና መተግበሪያው ይህን ቻርት አያነብም፦ የሲግናል ሞተሩ የራሱን የዋጋ ምንጭ ይጠቀማል።',
 };

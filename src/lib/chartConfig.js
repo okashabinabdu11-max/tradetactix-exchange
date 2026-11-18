@@ -3,6 +3,28 @@
 
 export const CHART_SYMBOL = 'OANDA:XAUUSD';
 
+// Pairs to pick from. Any other TradingView symbol can be typed in too.
+const fx = (list) => list.map((p) => ({ id: `FX:${p}`, label: `${p.slice(0, 3)}/${p.slice(3)}` }));
+export const SYMBOL_GROUPS = [
+  { label: 'Metals', items: [{ id: 'OANDA:XAUUSD', label: 'XAU/USD (Gold)' }, { id: 'OANDA:XAGUSD', label: 'XAG/USD (Silver)' }, { id: 'OANDA:XPTUSD', label: 'XPT/USD (Platinum)' }] },
+  { label: 'Major pairs', items: fx(['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'NZDUSD', 'USDCAD']) },
+  { label: 'Cross pairs', items: fx(['EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'EURAUD', 'EURCAD', 'EURNZD', 'GBPCHF', 'GBPAUD', 'GBPCAD', 'GBPNZD', 'AUDJPY', 'AUDCAD', 'AUDCHF', 'AUDNZD', 'NZDJPY', 'NZDCAD', 'NZDCHF', 'CADJPY', 'CADCHF', 'CHFJPY']) },
+  { label: 'Exotic pairs', items: fx(['USDZAR', 'USDTRY', 'USDMXN', 'USDSGD', 'USDHKD', 'USDNOK', 'USDSEK', 'USDPLN', 'EURTRY']) },
+  { label: 'Indices', items: [{ id: 'OANDA:NAS100USD', label: 'US Tech 100' }, { id: 'OANDA:SPX500USD', label: 'US 500' }, { id: 'OANDA:US30USD', label: 'US 30' }, { id: 'OANDA:DE30EUR', label: 'Germany 40' }, { id: 'OANDA:UK100GBP', label: 'UK 100' }, { id: 'OANDA:JP225USD', label: 'Japan 225' }] },
+  { label: 'Oil', items: [{ id: 'TVC:USOIL', label: 'US Oil (WTI)' }, { id: 'TVC:UKOIL', label: 'UK Oil (Brent)' }] },
+  { label: 'Crypto', items: [{ id: 'BITSTAMP:BTCUSD', label: 'BTC/USD' }, { id: 'BITSTAMP:ETHUSD', label: 'ETH/USD' }, { id: 'BINANCE:SOLUSDT', label: 'SOL/USDT' }, { id: 'BINANCE:XRPUSDT', label: 'XRP/USDT' }, { id: 'BINANCE:BNBUSDT', label: 'BNB/USDT' }] },
+];
+export const ALL_SYMBOLS = SYMBOL_GROUPS.flatMap((g) => g.items);
+
+/** A symbol as typed: "EURUSD", "fx:eurusd" or "BINANCE:BTCUSDT". Null when it cannot be a symbol. */
+export function cleanSymbol(input) {
+  const s = String(input || '').trim().toUpperCase().replace(/\s+/g, '').replace('/', '');
+  if (!/^([A-Z0-9_]{1,20}:)?[A-Z0-9._!]{2,30}$/.test(s)) return null;
+  if (s.includes(':')) return s;
+  const known = ALL_SYMBOLS.find((x) => x.id.split(':')[1] === s);
+  return known ? known.id : s;
+}
+
 // One view per step of the plan. 4H is a line chart because that is how the
 // levels are drawn; the others are candles.
 export const CHART_VIEWS = [
@@ -54,10 +76,10 @@ export function allowedStudies(selected, pro) {
   return (selected || []).filter((id) => ids.has(id));
 }
 
-export function widgetConfig(view, { pro = false, colors = resolveColors(null), studies = [] } = {}) {
+export function widgetConfig(view, { pro = false, colors = resolveColors(null), studies = [], symbol = CHART_SYMBOL } = {}) {
   return {
     autosize: true,
-    symbol: CHART_SYMBOL,
+    symbol: cleanSymbol(symbol) || CHART_SYMBOL,
     interval: view.interval,
     style: view.style,
     timezone: 'Africa/Addis_Ababa',
@@ -65,7 +87,8 @@ export function widgetConfig(view, { pro = false, colors = resolveColors(null), 
     locale: 'en',
     backgroundColor: colors.bg,
     gridColor: colors.grid,
-    allow_symbol_change: false,
+    // Chart Pro can also search any symbol from TradingView's own toolbar.
+    allow_symbol_change: pro,
     // Chart Pro: TradingView's own toolbars with every drawing tool and indicator.
     hide_top_toolbar: !pro,
     hide_side_toolbar: !pro,
