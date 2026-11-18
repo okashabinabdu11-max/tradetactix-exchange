@@ -61,7 +61,25 @@ test('formatters', () => {
   assert.equal(escapeHtml('<b>"x"</b>'), '&lt;b&gt;&quot;x&quot;&lt;/b&gt;');
 });
 
-import { CHART_VIEWS, widgetConfig } from '../src/pages/chart.js';
+import { CHART_VIEWS, widgetConfig, resolveColors, allowedStudies, INDICATORS } from '../src/lib/chartConfig.js';
+
+test('chart: free gets no toolbars and only free indicators; Chart Pro gets everything', () => {
+  const all = INDICATORS.map((i) => i.id);
+  const free = widgetConfig(CHART_VIEWS[0], { pro: false, studies: all });
+  assert.equal(free.hide_side_toolbar, true); assert.equal(free.hide_top_toolbar, true);
+  assert.deepEqual(free.studies, INDICATORS.filter((i) => i.free).map((i) => i.id));
+  const pro = widgetConfig(CHART_VIEWS[0], { pro: true, studies: all });
+  assert.equal(pro.hide_side_toolbar, false); assert.equal(pro.hide_top_toolbar, false);
+  assert.equal(pro.studies.length, all.length);
+  assert.deepEqual(allowedStudies(['made-up'], true), []);
+});
+
+test('chart colours: presets, custom hex only, otherwise follow the site', () => {
+  assert.deepEqual(resolveColors({ preset: 'white' }), { theme: 'light', bg: '#ffffff', grid: '#f0f0f0' });
+  assert.deepEqual(resolveColors({ preset: 'custom', theme: 'dark', bg: '#112233', grid: '#445566' }), { theme: 'dark', bg: '#112233', grid: '#445566' });
+  assert.equal(resolveColors({ preset: 'custom', bg: 'red', grid: '#445566' }, 'light').bg, '#ffffff');
+  assert.equal(resolveColors(null, 'dark').bg, '#000000');
+});
 
 test('chart views follow the plan: 4H line chart, then candles', () => {
   assert.deepEqual(CHART_VIEWS.map((v) => v.interval), ['240', '60', '15', '5']);

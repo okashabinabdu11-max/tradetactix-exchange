@@ -2,6 +2,7 @@
 //   { kind: 'request',  requestId }  sent by the requester: tells administrators
 //   { kind: 'approved', requestId }  sent by an administrator: tells the member
 //   { kind: 'payment',  requestId }  sent by the payer (requestId = the payment claim): tells administrators
+//   { kind: 'chart_payment', requestId }  sent by the payer (requestId = the birr payment): tells administrators
 // The caller's own sign-in decides what they may trigger; the database checks it.
 
 import { bearerToken, getEntitlement } from './_lib/access.js';
@@ -25,10 +26,31 @@ export default async function handler(req, res) {
   let body = req.body;
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = null; } }
   const id = String(body?.requestId || '');
-  if (!/^[0-9a-f-]{36}$/i.test(id) || !['request', 'approved', 'payment'].includes(body?.kind)) return send(res, 400, { error: 'bad_request' });
+  if (!/^[0-9a-f-]{36}$/i.test(id) || !['request', 'approved', 'payment', 'chart_payment'].includes(body?.kind)) return send(res, 400, { error: 'bad_request' });
   if (body.kind === 'approved' && !who.is_admin) return send(res, 403, { error: 'admins_only' });
 
   try {
+    if (body.kind === 'chart_payment') {
+      // Read the payment with the payer's own sign-in, so only its owner can trigger this.
+      const headers = { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` };
+      const [p] = await fetch(`${SUPABASE_URL}/rest/v1/etb_payments?id=eq.${id}&select=id,status,amount_etb,method,reference,plan_name,days`, { headers, signal: AbortSignal.timeout(6000) }).then((r) => r.json());
+      if (!p || p.status !== 'pending') return send(res, 404, { error: 'not_found' });
+      const me = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers, signal: AbortSignal.timeout(6000) }).then((r) => r.json()).catch(() => ({}));
+      const text = `📈 New Chart Pro payment to review
+
+Email: ${me?.email || 'member'}
+Plan: ${p.plan_name} (${p.days} days)
+Amount: ${Number(p.amount_etb).toFixed(2)} ETB
+Method: ${p.method === 'cbe' ? 'CBE' : 'Telebirr'}
+Reference: ${p.reference}
+
+Check that the money arrived, then approve it in Admin: ${SITE_URL}/#/admin`;
+      let sent = 0;
+      for (const a of (await serverRpc('alerts_admin_chats', {})) || []) {
+        await telegram('sendMessage', { chat_id: a.chat_id, text, disable_web_page_preview: true }).then(() => { sent += 1; }).catch(() => {});
+      }
+      return send(res, 200, { sent });
+    }
     if (body.kind === 'payment') {
       // Read the claim with the payer's own sign-in, so only its owner can trigger this.
       const headers = { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` };

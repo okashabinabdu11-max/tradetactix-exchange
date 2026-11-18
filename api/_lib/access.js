@@ -55,3 +55,15 @@ export async function accountEmail(token) {
     return typeof user?.email === 'string' ? user.email : null;
   } catch { return null; }
 }
+
+/** Chart Pro for the caller (administrators always). Never throws: failure means no. */
+export async function getChartAccess(token) {
+  if (!token) return { signed_in: false, chart_pro: false };
+  try {
+    const a = await rpc('my_chart_access', token);
+    return a && typeof a === 'object' ? a : { signed_in: false, chart_pro: false };
+  } catch (err) {
+    console.error('chart access check failed', err?.message);
+    return { signed_in: false, chart_pro: false, check_failed: true };
+  }
+}

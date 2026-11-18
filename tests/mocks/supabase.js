@@ -3,7 +3,7 @@
 // makes, including "only your own rows" access. It is never bundled into the site.
 
 const accounts = new Map([['owner@example.com', { id: 'user-1', password: 'correct-horse' }]]);
-const tables = { risk_settings: [], trades: [], app_settings: [], payment_networks: [], payment_claims: [], telegram_links: [], access_requests: [] };
+const tables = { risk_settings: [], trades: [], app_settings: [], payment_networks: [], payment_claims: [], telegram_links: [], access_requests: [], chart_plans: [], etb_methods: [], etb_payments: [] };
 const opts = new URLSearchParams(location.search);
 // Plans state for browser tests: ?plan=free|pro|admin and ?networks=bep20,trc20 (open networks).
 const PLAN = opts.get('plan') || 'free';
@@ -15,6 +15,14 @@ for (const [id, label, addr, auto] of [
   ['plasma', 'USDT on Plasma', '0x3030c068eca3e9d104ebb005564fa7a50231f9b9', true],
   ['aptos', 'USDT on Aptos', '0xe3f9f6deddf7bcfac6d7bb62a584cf8a024b94239d6ce07105f02a63287e10a0', false],
 ]) tables.payment_networks.push({ id, label, receiving_address: addr, auto_verify: auto, enabled: OPEN.includes(id), verified: OPEN.includes(id), token_contract: OPEN.includes(id) ? 'TOKEN' : null, token_decimals: OPEN.includes(id) ? 6 : null, explorer_tx_url: 'https://explorer.test/tx/', sort: tables.payment_networks.length });
+// Chart Pro: ?chart=pro (member has it), ?cplans=1 (two admin-made plans), ?etb=telebirr,cbe (open methods, test details).
+const CHART = opts.get('chart') || '';
+if (opts.get('cplans') === '1') tables.chart_plans.push({ id: '00000000-0000-4000-8000-0000000000c1', name: 'Monthly', days: 30, price_etb: 500, enabled: true, sort: 1 }, { id: '00000000-0000-4000-8000-0000000000c2', name: 'Weekly', days: 7, price_etb: 150, enabled: true, sort: 2 });
+const ETB_OPEN = (opts.get('etb') || '').split(',').filter(Boolean);
+tables.etb_methods.push(
+  { id: 'telebirr', label: 'Telebirr', account_name: ETB_OPEN.includes('telebirr') ? 'Test Account' : '', account_number: ETB_OPEN.includes('telebirr') ? '0911000000' : '', enabled: ETB_OPEN.includes('telebirr'), sort: 1 },
+  { id: 'cbe', label: 'CBE (Commercial Bank of Ethiopia)', account_name: ETB_OPEN.includes('cbe') ? 'Test Account' : '', account_number: ETB_OPEN.includes('cbe') ? '1000000000000' : '', enabled: ETB_OPEN.includes('cbe'), sort: 2 },
+);
 window.__mock = tables;
 const missing = new URLSearchParams(location.search).get('missingTable');
 let nextId = 1;
@@ -41,8 +49,8 @@ export function createClient(url, key) {
       const uid = current?.user.id;
       const rls = { data: null, error: { code: '42501', message: 'new row violates row-level security policy' } };
       const rows = tables[name];
-      const shared = name === 'app_settings' || name === 'payment_networks';
-      const visible = () => rows.filter((r) => (shared ? (name !== 'payment_networks' || r.enabled || PLAN === 'admin') : r.user_id === uid) && q.filters.every(([c, v]) => r[c] === v));
+      const shared = ['app_settings', 'payment_networks', 'chart_plans', 'etb_methods'].includes(name);
+      const visible = () => rows.filter((r) => (shared ? (!['payment_networks', 'chart_plans', 'etb_methods'].includes(name) || r.enabled || PLAN === 'admin') : (r.user_id === uid || (PLAN === 'admin' && name === 'etb_payments'))) && q.filters.every(([c, v]) => r[c] === v));
       let out;
       if (q.op === 'select') {
         out = visible();
@@ -78,7 +86,8 @@ export function createClient(url, key) {
       update(row) { q.op = 'update'; q.row = row; return b; },
       delete() { q.op = 'delete'; return b; },
       eq(col, val) { q.filters.push([col, val]); return b; },
-      order(col, o = {}) { q.order = { col, ascending: o.ascending !== false }; return b; },
+      order(col, o = {}) { if (!q.order) q.order = { col, ascending: o.ascending !== false }; return b; },
+      limit() { return b; },
       maybeSingle() { q.single = 'maybe'; return run(); },
       single() { q.single = 'one'; return run(); },
       then(resolve, reject) { return run().then(resolve, reject); },
@@ -143,6 +152,42 @@ export function createClient(url, key) {
     },
     admin_grant_hours: ({ p_hours }) => { window.__grantedHours = p_hours; return { data: new Date(Date.now() + p_hours * 3600e3).toISOString(), error: null }; },
     admin_end_access: ({ p_user }) => { window.__ended = p_user; return { data: null, error: null }; },
+    my_chart_access: () => (!current ? { data: { signed_in: false, chart_pro: false }, error: null }
+      : PLAN === 'admin' ? { data: { signed_in: true, chart_pro: true, unlimited: true }, error: null }
+        : { data: { signed_in: true, chart_pro: CHART === 'pro', chart_until: CHART === 'pro' ? new Date(Date.now() + 20 * 86400e3).toISOString() : null }, error: null }),
+    submit_etb_payment: ({ p_plan, p_method, p_reference }) => {
+      const ref = String(p_reference || '').trim().toUpperCase();
+      const plan = tables.chart_plans.find((x) => x.id === p_plan && x.enabled);
+      if (!plan) return fail('Choose a Chart Pro plan.');
+      if (!tables.etb_methods.some((m) => m.id === p_method && m.enabled)) return fail('This payment method is not open.');
+      if (!/^[A-Z0-9-]{6,40}$/.test(ref)) return fail('Enter the transaction reference from your receipt (6 to 40 letters and numbers).');
+      if (tables.etb_payments.some((x) => x.method === p_method && x.reference === ref && x.status !== 'rejected')) return fail('This transaction reference has already been used.');
+      const row = { id: `00000000-0000-4000-9000-${String(nextId++).padStart(12, '0')}`, user_id: current.user.id, method: p_method, plan_id: plan.id, plan_name: plan.name, amount_etb: plan.price_etb, days: plan.days, reference: ref, status: 'pending', admin_note: '', created_at: new Date().toISOString() };
+      tables.etb_payments.push(row);
+      return { data: row, error: null };
+    },
+    admin_list_etb_payments: ({ p_status }) => (PLAN === 'admin' ? { data: tables.etb_payments.filter((x) => p_status === 'all' || x.status === p_status).map((x) => ({ ...x, email: 'customer@example.com', chart_until: null })), error: null } : fail('Administrators only.')),
+    admin_review_etb_payment: ({ p_id, p_approve, p_note }) => {
+      const x = tables.etb_payments.find((r) => r.id === p_id);
+      Object.assign(x, { status: p_approve ? 'approved' : 'rejected', admin_note: p_note || '' });
+      window.__etbReviewed = { id: p_id, approve: p_approve };
+      return { data: x, error: null };
+    },
+    admin_save_chart_plan: ({ p_id, p_name, p_days, p_price, p_enabled, p_sort }) => {
+      if (!String(p_name || '').trim()) return fail('Give the plan a name.');
+      if (!(p_days >= 1)) return fail('Days must be 1 to 3650.');
+      if (!(p_price > 0)) return fail('Enter a price in birr above 0.');
+      let row = tables.chart_plans.find((x) => x.id === p_id);
+      if (!row) { row = { id: `00000000-0000-4000-8000-${String(nextId++).padStart(12, '0')}` }; tables.chart_plans.push(row); }
+      Object.assign(row, { name: p_name.trim(), days: p_days, price_etb: p_price, enabled: p_enabled, sort: p_sort });
+      return { data: row, error: null };
+    },
+    admin_set_etb_method: ({ p_id, p_account_name, p_account_number, p_enabled }) => {
+      const m = tables.etb_methods.find((x) => x.id === p_id);
+      if (p_enabled && !(String(p_account_name).trim() && String(p_account_number).trim())) return fail('new row violates check constraint "etb_method_complete"');
+      Object.assign(m, { account_name: p_account_name.trim(), account_number: p_account_number.trim(), enabled: p_enabled });
+      return { data: m, error: null };
+    },
     create_telegram_link_code: () => ({ data: 'ABCDEFGHJK', error: null }),
     unlink_my_telegram: () => { tables.telegram_links.length = 0; return { data: null, error: null }; },
     admin_recent_alerts: () => ({ data: [{ signal_key: 'buy-x', state: 'buy', recipients: 3, sent_at: new Date().toISOString() }], error: null }),

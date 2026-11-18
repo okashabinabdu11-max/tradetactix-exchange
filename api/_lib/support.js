@@ -28,6 +28,7 @@ Facts you can rely on:
 - The site works like an app on iPhone: open it in Safari, tap Share, then Add to Home Screen.
 - The site has an English/Amharic switch (EN / አማ) at the top, next to the dark/light button.
 - The journal (Journal, History, Analytics, Calendar, Discipline) is for approved members to log their own trades by hand. The Journal page shows a running-total chart and their win rate for the last 7 days, last 30 days and all time. Trades are not imported automatically from MT5 yet. The Risk page sizes a position from balance and risk percent.
+- Chart page: a live XAUUSD TradingView chart that anyone can open, with a Full screen button, colour choices, and the moving average and RSI for free. For a better experience, use a PC. Chart Pro is a separate paid plan (not the same as signal access): every TradingView drawing tool and indicator, plus a backtest of the TradeTactix plan on up to 50 days of real past candles (a backtest, not live results). It is paid in Ethiopian birr with Telebirr or CBE on the Plans page: choose a plan, choose the method, copy the account number, pay, enter the transaction reference, tap "I've paid", and wait for the admin to approve. The admin sets the plans and prices; do not state a price.
 - The site never places trades and is not connected to anyone's broker account. Live trading is locked.
 
 Rules:

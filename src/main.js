@@ -40,7 +40,8 @@ const builtPages = {
 };
 
 const routeIds = [...SECTIONS.map((s) => s.id), 'more', 'home'];
-const OPEN_ROUTES = ['plans', 'profile', 'more', 'admin', 'support'];
+// The chart is open to everyone: Chart Pro is its own paid plan, separate from signal access.
+const OPEN_ROUTES = ['plans', 'profile', 'more', 'admin', 'support', 'chart'];
 
 initTheme();
 initLang();

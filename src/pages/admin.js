@@ -6,6 +6,7 @@ import {
   adminOverview, adminListClaims, adminReviewClaim, adminListUsers, adminGrantCredits,
   adminUpdateSettings, adminSetNetwork, adminVerifyPayment, listNetworks, getPlanSettings,
   adminSetupTelegram, adminRecentAlerts, adminListAccessRequests, adminReviewAccess, adminGrantHours, adminEndAccess, notifyAccess,
+  listChartPlans, listEtbMethods, adminSaveChartPlan, adminSetEtbMethod, adminListEtbPayments, adminReviewEtbPayment,
 } from '../services/backend.js';
 import { escapeHtml } from '../lib/format.js';
 
@@ -172,6 +173,61 @@ function usersSection(users) {
     </section>`;
 }
 
+// ---------- Chart Pro (birr) ----------
+const birr = (n) => `${Number(n).toFixed(2)} ETB`;
+function chartSection(c) {
+  if (c.error) {
+    return `<section class="panel admin-section"><h2 class="panel-title">Chart Pro (birr)</h2><p class="result-empty">${escapeHtml(c.error)}</p>
+      <p class="panel-note">Run supabase/migrations/0011_chart_pro.sql in the Supabase SQL editor, then reload.</p></section>`;
+  }
+  const tabBtn = (id, label) => `<button type="button" class="tab-btn" data-ctab="${id}" aria-pressed="${c.tab === id}">${label}</button>`;
+  const pays = c.payments.map((p) => `
+    <li class="admin-claim" data-etb="${p.id}">
+      <div class="admin-claim-top"><strong>${escapeHtml(p.email)}</strong><span>${escapeHtml(p.plan_name || '')} · ${p.days} days · ${birr(p.amount_etb)} · ${p.method === 'cbe' ? 'CBE' : 'Telebirr'}</span><span class="claim-status is-${p.status}">${p.status}</span></div>
+      <div class="admin-claim-hash">Reference <code>${escapeHtml(p.reference)}</code> · sent ${dateTime(p.created_at)}${p.chart_until ? ` · Chart Pro until ${dateTime(p.chart_until)}` : ''}</div>
+      ${p.status === 'pending' ? `<p class="panel-note">Open your ${p.method === 'cbe' ? 'CBE' : 'Telebirr'} history and check that ${birr(p.amount_etb)} arrived with this reference before approving.</p>
+        <div class="admin-actions"><button class="button button-primary" type="button" data-etb-act="approve">Money arrived: approve</button><button class="button button-quiet is-danger" type="button" data-etb-act="reject">Reject</button></div>`
+        : p.admin_note ? `<div class="claim-note">${escapeHtml(p.admin_note)}</div>` : ''}
+    </li>`).join('');
+  const planRow = (pl) => `
+    <form class="chart-plan-form" data-plan-id="${pl ? pl.id : ''}" novalidate>
+      <label class="field"><span class="field-label">Name</span><input name="name" type="text" maxlength="60" value="${pl ? escapeHtml(pl.name) : ''}" placeholder="Monthly" required></label>
+      <label class="field"><span class="field-label">Days</span><input name="days" type="number" min="1" max="3650" step="1" inputmode="numeric" value="${pl ? pl.days : ''}"></label>
+      <label class="field"><span class="field-label">Price (ETB)</span><input name="price" type="number" min="1" step="0.01" inputmode="decimal" value="${pl ? Number(pl.price_etb) : ''}"></label>
+      <label class="field"><span class="field-label">Order</span><input name="sort" type="number" step="1" value="${pl ? pl.sort : c.plans.length + 1}"></label>
+      <label class="check"><input name="enabled" type="checkbox" ${!pl || pl.enabled ? 'checked' : ''}> Shown to members</label>
+      <button class="button ${pl ? 'button-quiet' : 'button-primary'}" type="submit">${pl ? 'Save' : 'Add plan'}</button>
+      <p class="form-status" role="status"></p>
+    </form>`;
+  const methodForm = (m) => `
+    <form class="etb-method-form" data-method="${m.id}" novalidate>
+      <p class="field-label"><strong>${escapeHtml(m.label)}</strong></p>
+      <label class="field"><span class="field-label">Account name</span><input name="name" type="text" maxlength="120" value="${escapeHtml(m.account_name)}" autocomplete="off"></label>
+      <label class="field"><span class="field-label">${m.id === 'cbe' ? 'Account number' : 'Telebirr number'}</span><input name="number" type="text" maxlength="60" value="${escapeHtml(m.account_number)}" autocomplete="off" inputmode="numeric"></label>
+      <label class="check"><input name="enabled" type="checkbox" ${m.enabled ? 'checked' : ''}> Open to members</label>
+      <button class="button button-quiet" type="submit">Save</button>
+      <p class="form-status" role="status"></p>
+    </form>`;
+  return `
+    <section class="panel admin-section">
+      <h2 class="panel-title">Chart Pro payments (birr)</h2>
+      <div class="tab-row">${tabBtn('pending', 'Waiting')}${tabBtn('all', 'All')}</div>
+      ${pays ? `<ul class="admin-claims">${pays}</ul>` : '<p class="result-empty">No birr payments waiting.</p>'}
+      <p class="panel-note">Approving adds the plan's days to that member's Chart Pro, after any time they still have.</p>
+    </section>
+    <section class="panel admin-section">
+      <h2 class="panel-title">Chart Pro plans</h2>
+      <p class="panel-note">You set every plan and price. Members see only plans that are shown.</p>
+      <div class="chart-plans">${c.plans.map(planRow).join('')}</div>
+      <p class="field-label">New plan</p>${planRow(null)}
+    </section>
+    <section class="panel admin-section">
+      <h2 class="panel-title">Birr payment methods</h2>
+      <p class="panel-note">Enter your own account details. A method is shown to members only when it has a name and number and is open. Double-check every digit: members send money to exactly what is here.</p>
+      ${c.methods.map(methodForm).join('')}
+    </section>`;
+}
+
 export function adminPage() {
   const { ready, user, entitlement } = session.get();
   const head = '<header class="page-head"><h1>Admin</h1><p>Payments, plans, networks and users.</p></header>';
@@ -185,7 +241,7 @@ export function adminPage() {
     mount(root) {
       const box = root.querySelector('#admin-view');
       let alive = true;
-      const state = { tab: 'pending', claims: [], networks: [], settings: null, users: [], overview: null, error: null, alerts: [], rtab: 'pending', requests: [] };
+      const state = { tab: 'pending', claims: [], networks: [], settings: null, users: [], overview: null, error: null, alerts: [], rtab: 'pending', requests: [], chart: { tab: 'pending', payments: [], plans: [], methods: [], error: null } };
 
       const draw = () => {
         if (!alive) return;
@@ -202,6 +258,7 @@ export function adminPage() {
           </dl>
           ${requestsSection(state.requests, state.rtab)}
           ${claimsSection(state.claims, state.tab)}
+          ${chartSection(state.chart)}
           ${testSection(state.networks)}
           ${networksSection(state.networks)}
           ${settingsSection(state.settings)}
@@ -210,19 +267,42 @@ export function adminPage() {
       };
 
       const loadClaims = async () => { const r = await adminListClaims(state.tab); state.claims = r.ok ? r.data : []; };
+      const loadChart = async () => {
+        const [pay, pl, m] = await Promise.all([adminListEtbPayments(state.chart.tab), listChartPlans(), listEtbMethods()]);
+        state.chart.error = pay.ok ? null : pay.message;
+        state.chart.payments = pay.ok ? pay.data : []; state.chart.plans = pl.ok ? pl.data : []; state.chart.methods = m.ok ? m.data : [];
+      };
       const loadRequests = async () => { const r = await adminListAccessRequests(state.rtab); state.requests = r.ok ? r.data : []; };
       const loadAll = async () => {
         const [o, n, s, u] = await Promise.all([adminOverview(), listNetworks(), getPlanSettings(), adminListUsers('')]);
         if (!o.ok) { state.error = o.message; draw(); return; }
         state.overview = o.data; state.networks = n.ok ? n.data : []; state.settings = s.ok ? s.data : {}; state.users = u.ok ? u.data : [];
         const al = await adminRecentAlerts(); state.alerts = al.ok ? al.data : [];
-        await Promise.all([loadClaims(), loadRequests()]);
+        await Promise.all([loadClaims(), loadRequests(), loadChart()]);
         draw();
       };
       const refreshOverview = async () => { const o = await adminOverview(); if (o.ok) state.overview = o.data; };
       const formStatus = (form, text, tone = '') => { const el = form.querySelector('.form-status'); if (el) { el.textContent = text; el.className = `form-status ${tone}`; } };
 
       box.addEventListener('click', async (e) => {
+        const ctab = e.target.closest('[data-ctab]');
+        if (ctab) { state.chart.tab = ctab.dataset.ctab; await loadChart(); draw(); return; }
+        const etbAct = e.target.closest('[data-etb-act]');
+        if (etbAct) {
+          const li = etbAct.closest('[data-etb]');
+          const approve = etbAct.dataset.etbAct === 'approve';
+          let note = 'Payment received';
+          if (!approve) {
+            note = window.prompt ? window.prompt('Reason shown to the member (optional):', '') : '';
+            if (note === null) return;
+            note = note || 'The payment could not be found.';
+          }
+          etbAct.disabled = true;
+          const r = await adminReviewEtbPayment(li.dataset.etb, approve, note);
+          if (!r.ok) { etbAct.disabled = false; li.insertAdjacentHTML('beforeend', `<p class="form-status is-error">${escapeHtml(r.message)}</p>`); return; }
+          await loadChart(); draw();
+          return;
+        }
         const rtab = e.target.closest('[data-rtab]');
         if (rtab) { state.rtab = rtab.dataset.rtab; await loadRequests(); draw(); return; }
 
@@ -334,6 +414,24 @@ export function adminPage() {
       box.addEventListener('submit', async (e) => {
         e.preventDefault();
         const f = e.target;
+        if (f.classList.contains('chart-plan-form')) {
+          formStatus(f, 'Saving…');
+          const r = await adminSaveChartPlan({ id: f.dataset.planId || null, name: f.elements.name.value, days: Number(f.elements.days.value), price: Number(f.elements.price.value), enabled: f.elements.enabled.checked, sort: Number(f.elements.sort.value) || 0 });
+          if (!r.ok) { formStatus(f, r.message, 'is-error'); return; }
+          await loadChart(); draw();
+          return;
+        }
+        if (f.classList.contains('etb-method-form')) {
+          formStatus(f, 'Saving…');
+          const enabled = f.elements.enabled.checked;
+          if (enabled && (!f.elements.name.value.trim() || !f.elements.number.value.trim())) { formStatus(f, 'Enter the account name and number before opening this method.', 'is-error'); return; }
+          const r = await adminSetEtbMethod(f.dataset.method, f.elements.name.value, f.elements.number.value, enabled);
+          if (!r.ok) { formStatus(f, r.message, 'is-error'); return; }
+          await loadChart(); draw();
+          const again = root.querySelector(`.etb-method-form[data-method="${f.dataset.method}"]`);
+          if (again) formStatus(again, r.data.enabled ? 'Saved. Members can pay with this method.' : 'Saved. Not shown to members.', 'is-ok');
+          return;
+        }
         if (f.id === 'test-form') {
           const out = root.querySelector('#test-result');
           const net = root.querySelector(`.net-form[data-net="${f.elements.network.value}"]`);

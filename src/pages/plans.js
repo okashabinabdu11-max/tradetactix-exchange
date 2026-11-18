@@ -3,7 +3,8 @@
 // administrator approves a payment whose on-chain check passed.
 
 import { session } from '../state/session.js';
-import { getPlanSettings, listNetworks, listMyClaims, startPayment, submitClaim, refreshEntitlement, getMyTelegram, createTelegramCode, unlinkTelegram, getMyAccessRequest, requestAccess, notifyAccess } from '../services/backend.js';
+import { getPlanSettings, listNetworks, listMyClaims, startPayment, submitClaim, refreshEntitlement, getMyTelegram, createTelegramCode, unlinkTelegram, getMyAccessRequest, requestAccess, notifyAccess, listChartPlans, listEtbMethods, listMyEtbPayments, submitEtbPayment, getChartAccess } from '../services/backend.js';
+import { t } from '../lib/i18n.js';
 import { isSupabaseConfigured } from '../config.js';
 import { escapeHtml } from '../lib/format.js';
 
@@ -156,6 +157,75 @@ function proPanel({ settings, networks, open, claims, ui }) {
     </section>`;
 }
 
+// ---------- Chart Pro: paid in birr (Telebirr or CBE), separate from signals Pro ----------
+const birr = (n) => `${Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ETB`;
+const daysText = (d) => (d === 1 ? t('1 day') : `${d} ${t('days')}`);
+const CHART_FEATURES = ['Full TradingView toolbars: every drawing tool, unlimited', 'All indicators', 'Backtest the TradeTactix plan on real past candles'];
+const ETB_STATUS = { pending: 'Waiting for approval', approved: 'Approved, Chart Pro added', rejected: 'Not approved' };
+
+export function chartProPanel({ chart, user, cui }) {
+  const head = `<h2 class="panel-title">${t('Chart Pro')}</h2>`;
+  const features = `<ul class="plan-list">${CHART_FEATURES.map((f) => `<li>${t(f)}</li>`).join('')}</ul>`;
+  if (!chart) return `<section class="panel pay chart-pro" id="chart-pro">${head}<p class="result-empty">${t('Chart Pro is not set up in the database yet.')}</p></section>`;
+  const { plans, methods, payments, access } = chart;
+  const from = plans.length ? Math.min(...plans.map((p) => Number(p.price_etb))) : null;
+  if (!user) {
+    return `<section class="panel pay chart-pro" id="chart-pro">${head}${features}
+      ${from !== null ? `<p class="pay-amount"><span>${t('Paid in birr')}</span><strong>${t('from')} ${birr(from)}</strong></p>` : ''}
+      <p class="panel-note">${t('Open your account to get Chart Pro.')}</p><a class="button button-quiet" href="#/home">${t('Open Account')}</a></section>`;
+  }
+  if (access?.unlimited) return `<section class="panel pay chart-pro" id="chart-pro">${head}<p class="alerts-on">${t('Chart Pro is always on for administrators.')}</p></section>`;
+  const active = access?.chart_pro && access.chart_until ? `<p class="alerts-on">${t('Chart Pro active until')} ${dateTime(access.chart_until)}</p>` : '';
+  const pending = payments.find((x) => x.status === 'pending');
+  const history = payments.length ? `<ul class="claim-list">${payments.map((x) => `<li><span>${dateTime(x.created_at)}</span><span>${escapeHtml(x.plan_name || '')} · ${birr(x.amount_etb)} · ${x.method === 'cbe' ? 'CBE' : 'Telebirr'}</span><span class="claim-status is-${x.status}">${t(ETB_STATUS[x.status] || x.status)}</span>${x.admin_note && x.status === 'rejected' ? `<span class="claim-note">${escapeHtml(x.admin_note)}</span>` : ''}</li>`).join('')}</ul>` : '';
+  if (pending) {
+    return `<section class="panel pay pay-wait chart-pro" id="chart-pro"><h2 class="panel-title">${t('Chart Pro: waiting for approval')}</h2>${active}
+      <p class="pay-amount"><span>${escapeHtml(pending.plan_name)} · ${pending.method === 'cbe' ? 'CBE' : 'Telebirr'}</span><strong>${birr(pending.amount_etb)}</strong></p>
+      <p class="panel-note">${t('Reference')} <code>${escapeHtml(pending.reference)}</code>, ${t('sent')} ${dateTime(pending.created_at)}.</p>
+      <p>${t('The admin checks that the money arrived, then approves. Chart Pro opens on the Chart page as soon as it is approved.')}</p>
+      <p class="panel-note">${t('Question about your payment? Message')} <a class="inline-link" href="https://t.me/Tradetactix1" target="_blank" rel="noopener">@Tradetactix1</a>.</p>
+      ${history}</section>`;
+  }
+  if (!cui.show) {
+    return `<section class="panel pay pro-offer chart-pro" id="chart-pro">${head}${active}${features}
+      ${from !== null ? `<p class="pay-amount"><span>${t('Paid in birr: Telebirr or CBE')}</span><strong>${t('from')} ${birr(from)}</strong></p>` : ''}
+      <div class="form-actions"><button class="button button-primary" type="button" data-cp="start">${access?.chart_pro ? t('Extend Chart Pro') : t('Get Chart Pro')}</button></div>
+      ${history}</section>`;
+  }
+  if (!plans.length || !methods.length) {
+    return `<section class="panel pay chart-pro" id="chart-pro">${head}
+      <p class="result-empty">${t('Chart Pro payments are not open yet. Message')} <a class="inline-link" href="https://t.me/Tradetactix1" target="_blank" rel="noopener">@Tradetactix1</a>.</p></section>`;
+  }
+  const plan = plans.find((p) => p.id === cui.plan);
+  const method = methods.find((m) => m.id === cui.method);
+  const planBtns = plans.map((p) => `<button class="pay-method ${cui.plan === p.id ? 'is-on' : ''}" type="button" data-cp-plan="${p.id}" aria-pressed="${cui.plan === p.id}"><strong>${escapeHtml(p.name)}</strong> · ${daysText(p.days)} · ${birr(p.price_etb)}</button>`).join('');
+  const methodBtns = methods.map((m) => `<button class="pay-method ${cui.method === m.id ? 'is-on' : ''}" type="button" data-cp-method="${m.id}" aria-pressed="${cui.method === m.id}">${escapeHtml(m.label)}</button>`).join('');
+  return `<section class="panel pay chart-pro" id="chart-pro">
+    <h2 class="panel-title">${t('Get Chart Pro')}</h2>
+    <p class="field-label">${t('1. Choose a plan')}</p><div class="pay-methods">${planBtns}</div>
+    ${plan ? `<p class="field-label">${t('2. Choose how to pay')}</p><div class="pay-methods">${methodBtns}</div>` : ''}
+    ${plan && method ? `
+      <div class="pay-box">
+        <p class="field-label">${t('3. Send exactly this amount')}</p>
+        <p class="pay-amount"><span>${escapeHtml(plan.name)} · ${daysText(plan.days)}</span><strong>${birr(plan.price_etb)}</strong></p>
+        <dl class="kv"><dt>${t('Method')}</dt><dd>${escapeHtml(method.label)}</dd><dt>${t('Account name')}</dt><dd>${escapeHtml(method.account_name)}</dd></dl>
+        <div class="field"><span class="field-label">${method.id === 'cbe' ? t('Account number') : t('Telebirr number')}</span>
+          <div class="copy-row"><code>${escapeHtml(method.account_number)}</code><button class="button ${cui.copied ? 'button-quiet' : 'button-primary'}" type="button" data-cp-copy="${escapeHtml(method.account_number)}">${cui.copied ? t('Copied') : t('Copy number')}</button></div>
+        </div>
+        <p class="pay-warn">${t('Check that the account name matches before you send. Send the full amount in one payment.')}</p>
+        ${cui.copied ? `
+        <form id="etb-form" class="hash-form" novalidate>
+          <p class="field-label">${t('4. After paying, enter the transaction reference')}</p>
+          <label class="field" for="etb-ref"><span class="sr-only">${t('Transaction reference')}</span>
+            <input id="etb-ref" name="ref" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="${method.id === 'cbe' ? 'FT…' : t('Transaction number')}" maxlength="40" />
+            <span class="field-hint">${method.id === 'cbe' ? t('The FT reference on your CBE receipt or SMS.') : t('The transaction number in your Telebirr SMS or receipt.')}</span></label>
+          <button class="button button-primary" type="submit">${t("I've paid")}</button>
+        </form>` : `<button class="link-button" type="button" data-cp="show-ref">${t('I already paid')}</button>`}
+      </div>` : ''}
+    <p id="etb-status" class="form-status" role="status"></p>
+  </section>`;
+}
+
 export function plansPage() {
   const { ready, user, entitlement } = session.get();
   const head = '<header class="page-head"><h1>Plans</h1><p>Get Pro with USDT, or request access. Signals start after the admin approves.</p></header>';
@@ -173,10 +243,12 @@ export function plansPage() {
       let telegramCode = null;
       let accessRequest = null;
       const ui = { showPay: false, copied: false };
+      const cui = { show: false, plan: null, method: null, copied: false };
+      let chart = null;
 
       const draw = () => {
         if (!alive) return;
-        if (!settings) { box.innerHTML = '<section class="panel"><p class="result-empty">Plans are not set up in the database yet.</p></section>'; return; }
+        if (!settings) { box.innerHTML = `<section class="panel"><p class="result-empty">Plans are not set up in the database yet.</p></section>${chartProPanel({ chart, user, cui })}`; return; }
         const price = settings.pro_price_usdt; const credits = settings.credits_per_purchase; const hours = settings.hours_per_credit;
         let body = compare(price, credits, hours);
         if (!user) body = `${body}<section class="panel"><p class="result-empty">Open your account to request signal access.</p><a class="button button-quiet" href="#/home">Open Account</a></section>`;
@@ -187,12 +259,24 @@ export function plansPage() {
           body = statusPanel(entitlement) + proPanel({ settings, networks, open, claims, ui })
             + (isPro ? '' : accessPanel(accessRequest, user.email)) + alertsPanel(settings, entitlement, telegramLink, telegramCode) + claimsList(claims) + body;
         }
-        box.innerHTML = body;
+        box.innerHTML = body + chartProPanel({ chart, user, cui });
+        let goto = null;
+        try { goto = sessionStorage.getItem('tt-goto'); sessionStorage.removeItem('tt-goto'); } catch { /* private mode */ }
+        if (goto === 'chart-pro') root.querySelector('#chart-pro')?.scrollIntoView({ block: 'start' });
       };
+
+      const loadChart = async () => {
+        const p = await listChartPlans();
+        if (!p.ok) { chart = null; return; }
+        if (!user) { chart = { plans: p.data, methods: [], payments: [], access: null }; return; }
+        const [m, pay, access] = await Promise.all([listEtbMethods(), listMyEtbPayments(), getChartAccess()]);
+        chart = { plans: p.data, methods: m.ok ? m.data.filter((x) => x.enabled) : [], payments: pay.ok ? pay.data : [], access };
+      };
+      const cstatus = (text, tone = '') => { const el = root.querySelector('#etb-status'); if (el) { el.textContent = text; el.className = `form-status ${tone}`; } };
 
       const load = async () => {
         if (!isSupabaseConfigured || !ready) { box.innerHTML = '<p class="result-empty">Checking sign-in…</p>'; return; }
-        const s = await getPlanSettings();
+        const [s] = await Promise.all([getPlanSettings(), loadChart()]);
         settings = s.ok ? s.data : null;
         if (user) {
           const [n, c, t, a] = await Promise.all([listNetworks(), listMyClaims(), getMyTelegram(), getMyAccessRequest()]);
@@ -221,6 +305,24 @@ export function plansPage() {
       };
 
       box.addEventListener('click', async (e) => {
+        const cp = e.target.closest('[data-cp]');
+        if (cp) {
+          if (cp.dataset.cp === 'start') { cui.show = true; if (chart?.plans.length === 1) cui.plan = chart.plans[0].id; draw(); root.querySelector('#chart-pro')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+          if (cp.dataset.cp === 'show-ref') { cui.copied = true; draw(); root.querySelector('#etb-ref')?.focus(); }
+          return;
+        }
+        const cpPlan = e.target.closest('[data-cp-plan]');
+        if (cpPlan) { cui.plan = cpPlan.dataset.cpPlan; cui.copied = false; draw(); return; }
+        const cpMethod = e.target.closest('[data-cp-method]');
+        if (cpMethod) { cui.method = cpMethod.dataset.cpMethod; cui.copied = false; draw(); return; }
+        const cpCopy = e.target.closest('[data-cp-copy]');
+        if (cpCopy) {
+          let ok = true;
+          try { await navigator.clipboard.writeText(cpCopy.dataset.cpCopy); } catch { ok = false; }
+          cui.copied = true; draw();
+          cstatus(ok ? t('Number copied. Pay the exact amount, then enter the transaction reference here.') : t('Copy the number by hand, pay the exact amount, then enter the transaction reference here.'), ok ? 'is-ok' : '');
+          return;
+        }
         const pay = e.target.closest('[data-pay]');
         if (pay) {
           if (pay.dataset.pay === 'start') { ui.showPay = true; draw(); root.querySelector('#pro-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
@@ -252,6 +354,23 @@ export function plansPage() {
       });
 
       box.addEventListener('submit', async (e) => {
+        if (e.target.id === 'etb-form') {
+          e.preventDefault();
+          const ref = e.target.elements.ref.value.trim().toUpperCase();
+          if (!/^[A-Z0-9-]{6,40}$/.test(ref)) { cstatus(t('Enter the transaction reference from your receipt (6 to 40 letters and numbers).'), 'is-error'); return; }
+          const button = e.target.querySelector('button');
+          button.disabled = true;
+          cstatus(t('Submitting…'));
+          const res = await submitEtbPayment(cui.plan, cui.method, ref);
+          button.disabled = false;
+          if (!res.ok) { cstatus(res.message, 'is-error'); return; }
+          chart.payments = [res.data, ...chart.payments];
+          Object.assign(cui, { show: false, plan: null, method: null, copied: false });
+          draw(); // shows "waiting for approval"
+          notifyAccess('chart_payment', res.data.id);
+          root.querySelector('#chart-pro')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return;
+        }
         if (e.target.id === 'access-form') {
           e.preventDefault();
           const f = e.target;

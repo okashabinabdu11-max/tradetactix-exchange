@@ -2,6 +2,9 @@
   "functions": {
     "api/alerts-run.js": {
       "maxDuration": 60
+    },
+    "api/backtest.js": {
+      "maxDuration": 60
     }
   },
   "headers": [

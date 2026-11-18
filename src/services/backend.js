@@ -333,3 +333,36 @@ export async function adminSetupTelegram() {
     return { ok: false, message: 'The setup service could not be reached.' };
   }
 }
+
+// ---------- Chart Pro (paid in birr) ----------
+const CHART_MISSING = 'Chart Pro is not set up in the database yet.';
+const chartCall = (name, args) => call(name, args).then((r) => (r.ok || !/tables have not been created/.test(r.message) ? r : { ok: false, message: CHART_MISSING }));
+const chartRows = (q) => rows(q).then((r) => (r.ok || !/tables have not been created/.test(r.message) ? r : { ok: false, message: CHART_MISSING }));
+/** { signed_in, chart_pro, chart_until?, unlimited? } — false for everyone when not set up. */
+export async function getChartAccess() {
+  if (!client) return { signed_in: false, chart_pro: false };
+  const r = await call('my_chart_access', {});
+  return r.ok && r.data ? r.data : { signed_in: !!session.get().user, chart_pro: false };
+}
+export const listChartPlans = () => chartRows((c) => c.from('chart_plans').select('*').order('sort', { ascending: true }).order('price_etb', { ascending: true }));
+export const listEtbMethods = () => chartRows((c) => c.from('etb_methods').select('*').order('sort', { ascending: true }));
+export const listMyEtbPayments = () => chartRows((c) => c.from('etb_payments').select('*').eq('user_id', session.get().user?.id).order('created_at', { ascending: false }).limit(5));
+export const submitEtbPayment = (plan, method, reference) => chartCall('submit_etb_payment', { p_plan: plan, p_method: method, p_reference: reference });
+export const adminSaveChartPlan = ({ id = null, name, days, price, enabled = true, sort = 0 }) =>
+  chartCall('admin_save_chart_plan', { p_id: id, p_name: name, p_days: days, p_price: price, p_enabled: enabled, p_sort: sort });
+export const adminSetEtbMethod = (id, name, number, enabled) => chartCall('admin_set_etb_method', { p_id: id, p_account_name: name, p_account_number: number, p_enabled: enabled });
+export const adminListEtbPayments = (status = 'pending') => chartCall('admin_list_etb_payments', { p_status: status });
+export const adminReviewEtbPayment = (id, approve, note = '') => chartCall('admin_review_etb_payment', { p_id: id, p_approve: approve, p_note: note });
+
+/** Chart Pro backtest of the TradeTactix plan on real past candles. */
+export async function runBacktest(days) {
+  const token = await getAccessToken();
+  if (!token) return { ok: false, message: 'Open your account first.' };
+  try {
+    const res = await fetch(`/api/backtest?days=${encodeURIComponent(days)}`, { headers: { Authorization: `Bearer ${token}` } });
+    const data = await res.json().catch(() => ({}));
+    return res.ok ? { ok: true, data } : { ok: false, message: data.message || 'The backtest could not run.' };
+  } catch {
+    return { ok: false, message: 'The backtest service could not be reached.' };
+  }
+}
