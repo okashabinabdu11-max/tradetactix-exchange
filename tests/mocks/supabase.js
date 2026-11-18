@@ -22,6 +22,13 @@ let nextId = 1;
 export function createClient(url, key) {
   if (!url || !key) throw new Error('supabaseUrl and supabaseKey are required');
   let current = null;
+  // ?pending=1 adds an older account whose email was never confirmed.
+  if (opts.get('pending') === '1') accounts.set('pending@example.com', { id: 'user-p1', password: 'Pending#2026', unconfirmed: true });
+  // ?google=new starts signed in as someone who just registered with Google (no password yet).
+  if (opts.get('google') === 'new') {
+    accounts.set('newbie@gmail.com', { id: 'user-g1', password: null });
+    current = { access_token: 'test-token', user: { id: 'user-g1', email: 'newbie@gmail.com', app_metadata: { provider: 'google', providers: ['google'] }, user_metadata: {} } };
+  }
   const listeners = new Set();
   const emit = (event) => listeners.forEach((cb) => cb(event, current));
 
@@ -178,6 +185,14 @@ export function createClient(url, key) {
       async resend({ email }) {
         window.__resent = email;
         return { data: {}, error: null };
+      },
+      async updateUser({ password, data }) {
+        if (!current) return { data: { user: null }, error: { message: 'Auth session missing!' } };
+        const acct = accounts.get(current.user.email);
+        if (acct && password) acct.password = password;
+        current = { ...current, user: { ...current.user, user_metadata: { ...(current.user.user_metadata || {}), ...(data || {}) } } };
+        emit('USER_UPDATED');
+        return { data: { user: current.user }, error: null };
       },
       async signInWithOAuth({ provider, options }) {
         window.__oauth = { provider, redirectTo: options?.redirectTo };

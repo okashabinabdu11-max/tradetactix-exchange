@@ -1,5 +1,5 @@
 import { session } from '../state/session.js';
-import { openAccount, signOut, signInWithGoogle, resendConfirmation, googleEnabled } from '../services/backend.js';
+import { openAccount, signOut, signInWithGoogle, resendConfirmation, googleEnabled, needsPassword, setPassword } from '../services/backend.js';
 import { passwordChecks } from '../lib/password.js';
 import { isSupabaseConfigured } from '../config.js';
 import { escapeHtml } from '../lib/format.js';
@@ -13,10 +13,12 @@ export function signedOutMarkup(notice) {
   return `
     <form class="panel auth" id="auth-form" novalidate>
       ${notice ? `<p class="form-status is-error" id="auth-notice">${escapeHtml(notice)}</p>` : ''}
-      <div id="google-block" hidden>
-        <button class="button button-google" type="button" id="google-signin">${GOOGLE_MARK}<span>Continue with Google</span></button>
-        <p class="auth-divider"><span>or use email</span></p>
+      <div class="auth-register">
+        <p class="field-label">${t('New here?')}</p>
+        <button class="button button-google" type="button" id="google-signin">${GOOGLE_MARK}<span>${t('Continue with Google')}</span></button>
+        <p class="field-hint" id="google-note">${t('Register with your Google account. It proves your email is real. Then you choose a password.')}</p>
       </div>
+      <p class="auth-divider"><span>${t('Already registered?')}</span></p>
       <label class="field" for="email">
         <span class="field-label">${t(`Email`)}</span>
         <input id="email" name="email" type="email" autocomplete="email" autocapitalize="none" spellcheck="false" required />
@@ -27,23 +29,64 @@ export function signedOutMarkup(notice) {
           <input id="password" name="password" type="password" autocomplete="current-password" minlength="${MIN_PASSWORD}" required />
           <button class="password-toggle" type="button" id="password-toggle" aria-controls="password" aria-pressed="false">${t(`Show`)}</button>
         </div>
-        <p class="field-hint">${t(`New here? Your password needs:`)}</p>
-        <ul class="pw-rules" id="pw-rules" aria-live="polite">
-          ${passwordChecks('').map((c) => `<li data-rule="${c.id}">${t(c.text)}</li>`).join('')}
-        </ul>
       </div>
       <div class="form-actions">
         <button class="button button-primary" type="submit" name="intent" value="signin">${t(`Open Account`)}</button>
       </div>
-      <p class="field-hint">${t(`Already have an account? The same button opens it.`)}</p>
+      <p class="field-hint">${t('Use the email and password of your account.')}</p>
       <p id="auth-status" class="form-status" role="status"></p>
       <button class="link-button" type="button" id="resend" hidden>${t('Send the confirmation email again')}</button>
       <p class="panel-note">${t(`Your account stores your risk limits now, and your journal and trade history in later stages. Only you can read them.`)}</p>
     </form>`;
 }
 
+// After registering with Google: choose a password for email log-in.
+export function setPasswordMarkup() {
+  return `
+    <form class="panel auth set-password" id="setpw-form" novalidate>
+      <h2 class="panel-title">${t('Choose your password')}</h2>
+      <p class="panel-note">${t('You registered with Google. Choose a password so you can also open your account with your email and password.')}</p>
+      <div class="field">
+        <label class="field-label" for="new-password">${t('Password')}</label>
+        <div class="password-wrap">
+          <input id="new-password" name="password" type="password" autocomplete="new-password" required />
+          <button class="password-toggle" type="button" data-toggle-for="new-password" aria-pressed="false">${t('Show')}</button>
+        </div>
+        <ul class="pw-rules" id="newpw-rules" aria-live="polite">
+          ${passwordChecks('').map((c) => `<li data-rule="${c.id}">${t(c.text)}</li>`).join('')}
+        </ul>
+      </div>
+      <div class="form-actions"><button class="button button-primary" type="submit">${t('Save password')}</button></div>
+      <p id="setpw-status" class="form-status" role="status"></p>
+    </form>`;
+}
+
+export function mountSetPassword(root) {
+  const form = root.querySelector('#setpw-form');
+  if (!form) return;
+  const pw = form.querySelector('#new-password');
+  const rules = form.querySelector('#newpw-rules');
+  const status = form.querySelector('#setpw-status');
+  const toggle = form.querySelector('[data-toggle-for]');
+  toggle.addEventListener('click', () => {
+    const show = pw.type === 'password'; pw.type = show ? 'text' : 'password';
+    toggle.textContent = show ? t('Hide') : t('Show'); toggle.setAttribute('aria-pressed', String(show));
+  });
+  pw.addEventListener('input', () => passwordChecks(pw.value).forEach((c) => rules.querySelector(`[data-rule="${c.id}"]`)?.classList.toggle('is-ok', c.ok)));
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector('button[type=submit]'); btn.disabled = true;
+    status.textContent = t('Saving…'); status.className = 'form-status';
+    const res = await setPassword(pw.value);
+    btn.disabled = false;
+    if (!res.ok) { status.textContent = t(res.message); status.className = 'form-status is-error'; rules.classList.add('is-attention'); return; }
+    form.outerHTML = `<section class="panel auth"><p class="form-status is-ok">${t('Password saved. You can now open your account with your email and password, or with Google.')}</p></section>`;
+  });
+}
+
 function signedInMarkup(user) {
   return `
+    ${needsPassword(user) ? setPasswordMarkup() : ''}
     <section class="panel auth">
       <p class="field-label">${t(`Signed in as`)}</p>
       <p class="auth-email">${escapeHtml(user.email || 'your account')}</p>
@@ -67,7 +110,7 @@ export function profilePage() {
     html: `
       <header class="page-head">
         <h1>${t(`Profile`)}</h1>
-        <p>${user ? 'Your TradeTactix account.' : t('Enter your email and password, then tap Open Account.')}</p>
+        <p>${user ? 'Your TradeTactix account.' : t('New here? Register with Google. Already registered? Open your account with your email and password.')}</p>
       </header>
       ${body}`,
     mount(root) {
@@ -88,16 +131,20 @@ export function profilePage() {
       }
 
       const form = root.querySelector('#auth-form');
-      // Show Google only when it is switched on in Supabase.
-      const googleBlock = root.querySelector('#google-block');
-      if (googleBlock) googleEnabled().then((on) => { if (on === true) googleBlock.hidden = false; });
+      mountSetPassword(root);
+      if (!status) return;
+      // Until Google is switched on in Supabase, say registration is not open yet.
+      const googleBtn = root.querySelector('#google-signin');
+      if (googleBtn) googleEnabled().then((on) => {
+        if (on === false) { googleBtn.disabled = true; root.querySelector('#google-note').textContent = t('Registration with Google opens soon.'); }
+      });
       const google = root.querySelector('#google-signin');
       if (google) {
         google.addEventListener('click', async () => {
           google.disabled = true;
-          setStatus('Opening Google…');
+          setStatus(t('Opening Google…'));
           const res = await signInWithGoogle();
-          if (!res.ok) { google.disabled = false; setStatus(res.message, 'is-error'); }
+          if (!res.ok) { google.disabled = false; setStatus(t(res.message), 'is-error'); }
           // On success the browser leaves for Google and returns signed in.
         });
       }
@@ -122,9 +169,6 @@ export function profilePage() {
           toggle.setAttribute('aria-pressed', String(show));
           toggle.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
         });
-        const rules = root.querySelector('#pw-rules');
-        const paint = () => passwordChecks(pw.value).forEach((c) => rules.querySelector(`[data-rule="${c.id}"]`)?.classList.toggle('is-ok', c.ok));
-        pw.addEventListener('input', paint);
       }
       if (form) {
         form.addEventListener('submit', async (e) => {
@@ -142,15 +186,8 @@ export function profilePage() {
 
           if (!res.ok) {
             setStatus(t(res.message), 'is-error');
-            if (res.code === 'weak') root.querySelector('#pw-rules')?.classList.add('is-attention');
             if (res.code === 'unconfirmed') { resend.dataset.email = email; resend.hidden = false; }
             return;
-          }
-          if (res.needsConfirmation) {
-            form.elements.password.value = '';
-            setStatus(`${t('Check your email to finish opening your account.')} ${t('We sent a confirmation link to')} ${email}. ${t('Tap it, then come back and tap Open Account. Check your spam folder too.')}`, 'is-ok');
-            resend.dataset.email = email;
-            resend.hidden = false;
           }
           // A successful sign-in re-renders this page through the session.
         });

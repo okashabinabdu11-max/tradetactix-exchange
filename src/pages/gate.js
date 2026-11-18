@@ -10,7 +10,7 @@ export function approvalGatePage(title) {
   else if (!user) {
     body = `
       <p>${t(`Signals, charts and analysis are for approved members only.`)}</p>
-      <ol class="gate-steps"><li>${t(`Open your account.`)}</li><li>${t(`Send your Telegram username on the Plans page.`)}</li><li>${t(`Wait for the admin to approve you.`)}</li></ol>
+      <ol class="gate-steps"><li>${t('Register with Google on the homepage.')}</li><li>${t(`Send your Telegram username on the Plans page.`)}</li><li>${t(`Wait for the admin to approve you.`)}</li></ol>
       <div class="form-actions"><a class="button button-primary" href="#/home">${t(`Open Account`)}</a><a class="button button-quiet" href="#/plans">${t(`How access works`)}</a></div>`;
   } else {
     body = `

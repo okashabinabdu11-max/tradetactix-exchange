@@ -52,7 +52,8 @@ async function applyUser(rawUser) {
     setSession({ ready: true, user: null, riskSettings: null, settingsError: null, entitlement: null });
     return;
   }
-  const user = { id: rawUser.id, email: rawUser.email };
+  // Keep what the pages need: who it is, and how they registered (for the choose-password step).
+  const user = { id: rawUser.id, email: rawUser.email, app_metadata: rawUser.app_metadata || {}, user_metadata: rawUser.user_metadata || {} };
   const [settings, entitlement] = await Promise.all([fetchRiskSettings(), fetchEntitlement()]);
   setSession({ ready: true, user, ...settings, entitlement });
 }
@@ -88,30 +89,33 @@ export async function signIn(email, password) {
 }
 
 /**
- * One button for everyone. Signs in when the email already has an account with
- * this password; otherwise opens a new account. New accounts need a strong
- * password; existing accounts sign in with the password they already have.
+ * Opens an existing account with email and password. It never creates one:
+ * new members register with Continue with Google, which proves the email is real.
  */
 export async function openAccount(email, password) {
   if (!client) return { ok: false, message: NOT_CONFIGURED };
-  const first = await client.auth.signInWithPassword({ email, password });
-  if (!first.error) return { ok: true, created: false };
-  if (/email not confirmed/i.test(first.error.message || '')) return { ok: false, code: 'unconfirmed', message: friendly(first.error) };
-  if (!/invalid login credentials/i.test(first.error.message || '')) return { ok: false, message: friendly(first.error) };
-  if (!isStrongPassword(password)) {
-    return { ok: false, code: 'weak', message: 'Wrong password for this email. New here? Choose a strong password that meets every rule below.' };
+  const { error } = await client.auth.signInWithPassword({ email, password });
+  if (!error) return { ok: true };
+  if (/email not confirmed/i.test(error.message || '')) return { ok: false, code: 'unconfirmed', message: friendly(error) };
+  if (/invalid login credentials/i.test(error.message || '')) {
+    return { ok: false, code: 'unknown', message: 'Wrong email or password. New here? Register with Continue with Google first.' };
   }
-  const up = await client.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin } });
-  if (up.error) {
-    return { ok: false, message: /already registered|already exists/i.test(up.error.message || '') ? 'Wrong password for this email.' : friendly(up.error) };
-  }
-  // An existing email comes back as a look-alike success with no identities.
-  if (up.data.user && Array.isArray(up.data.user.identities) && up.data.user.identities.length === 0) {
-    return { ok: false, message: 'Wrong password for this email.' };
-  }
-  if (up.data.session) return { ok: true, created: true };
-  const again = await client.auth.signInWithPassword({ email, password });
-  return again.error ? { ok: true, created: true, needsConfirmation: true } : { ok: true, created: true };
+  return { ok: false, message: friendly(error) };
+}
+
+/** Someone who registered with Google and has not chosen a password yet. */
+export function needsPassword(user) {
+  if (!user) return false;
+  const providers = user.app_metadata?.providers || [user.app_metadata?.provider].filter(Boolean);
+  return providers.includes('google') && !providers.includes('email') && !user.user_metadata?.has_password;
+}
+
+/** Adds a password so the member can also log in with email and password. */
+export async function setPassword(password) {
+  if (!client) return { ok: false, message: NOT_CONFIGURED };
+  if (!isStrongPassword(password)) return { ok: false, message: 'Choose a strong password that meets every rule below.' };
+  const { error } = await client.auth.updateUser({ password, data: { has_password: true } });
+  return error ? { ok: false, message: friendly(error) } : { ok: true };
 }
 
 export async function signUp(email, password) {
@@ -157,7 +161,7 @@ export async function googleEnabled() {
 export async function signInWithGoogle() {
   if (!client) return { ok: false, message: NOT_CONFIGURED };
   if ((await googleEnabled()) === false) {
-    return { ok: false, message: 'Google sign-in is not switched on for this site yet. Use email and password for now.' };
+    return { ok: false, message: 'Registration with Google is not switched on yet. Please try again later.' };
   }
   const { error } = await client.auth.signInWithOAuth({
     provider: 'google',

@@ -5,7 +5,8 @@
 import { session } from '../state/session.js';
 import { isSupabaseConfigured } from '../config.js';
 import { escapeHtml } from '../lib/format.js';
-import { profilePage, signedOutMarkup } from './profile.js';
+import { profilePage, signedOutMarkup, setPasswordMarkup, mountSetPassword } from './profile.js';
+import { needsPassword, signInWithGoogle } from '../services/backend.js';
 import { getSignalStats } from '../services/backend.js';
 import { themeToggle } from '../ui/theme.js';
 import { t, langToggle } from '../lib/i18n.js';
@@ -50,21 +51,22 @@ export function homePage() {
   if (!isSupabaseConfigured) account = '<section class="panel auth"><p class="result-empty">Sign-in is unavailable right now.</p></section>';
   else if (!ready) account = '<section class="panel auth"><p class="result-empty">Checking sign-in…</p></section>';
   else if (user) {
-    account = `
+    account = `${needsPassword(user) ? setPasswordMarkup() : ''}
       <section class="panel auth home-signed-in">
         <p class="field-label">${t(`Signed in as`)}</p>
         <p class="auth-email">${escapeHtml(user.email || 'your account')}</p>
         <p class="panel-note">${approved ? t('Your signal access is active.') : t('Your account is waiting for signal access. Send your Telegram username on the Plans page.')}</p>
         <div class="form-actions">
           <a class="button button-primary" href="#/dashboard">${t(`Open dashboard`)}</a>
-          ${approved ? '' : '<a class="button button-quiet" href="#/plans">${t(`Request access`)}</a>'}
+          ${approved ? '' : `<a class="button button-quiet" href="#/plans">${t('Request access')}</a>`}
         </div>
       </section>`;
   } else account = signedOutMarkup(authNotice);
 
   const authButtons = user
     ? '<a class="button button-primary" href="#/dashboard" id="home-dashboard">${t(`Dashboard`)}</a>'
-    : `<button class="button button-primary" type="button" data-auth="open">${t(`Open Account`)}</button>
+    : `<button class="button button-primary" type="button" data-auth="google">${t('Register with Google')}</button>
+       <button class="button button-quiet" type="button" data-auth="open">${t('Open Account')}</button>
        <a class="button button-quiet" href="#/dashboard" id="home-dashboard">${t(`Dashboard`)}</a>`;
 
   return {
@@ -123,7 +125,7 @@ export function homePage() {
         <section class="home-join">
           <h2>${t(`How to join`)}</h2>
           <ol>
-            <li><span>${t('<strong>Open your account</strong> with your email on this page.')}</span></li>
+            <li><span>${t('<strong>Register with Google</strong> on this page, then choose a password.')}</span></li>
             <li><span>${t('<strong>Send your Telegram username</strong> on the Plans page.')}</span></li>
             <li><span>${t('<strong>Get approved</strong> and signals start arriving.')}</span></li>
           </ol>
@@ -141,7 +143,13 @@ export function homePage() {
         form.scrollIntoView({ behavior: 'smooth', block: 'start' });
         form.querySelector('#email')?.focus({ preventScroll: true });
       };
-      const onClick = (e) => { const b = e.target.closest('[data-auth]'); if (b) choose(b.dataset.auth); };
+      const onClick = (e) => {
+        const b = e.target.closest('[data-auth]');
+        if (!b) return;
+        if (b.dataset.auth === 'google') { b.disabled = true; signInWithGoogle().then((r) => { if (!r.ok) { b.disabled = false; choose(); const st = root.querySelector('#auth-status'); if (st) { st.textContent = t(r.message); st.className = 'form-status is-error'; } } }); return; }
+        choose(b.dataset.auth);
+      };
+      mountSetPassword(root);
       root.addEventListener('click', onClick);
       let alive = true;
       // Hide the app card when already opened from the home screen; offer the
