@@ -53,7 +53,7 @@ export default async function handler(req, res) {
     if (signal.state === 'buy' || signal.state === 'sell') {
       const key = signalKey(signal);
       const opened = new Date(new Date(signal.confirmedAt).getTime() + 15 * 60e3).toISOString();
-      await serverRpc('alerts_open_trade', { p_key: key, p_direction: signal.state, p_entry: signal.entry, p_stop: signal.stop, p_target: signal.target, p_opened_at: opened });
+      await serverRpc('alerts_open_trade', { p_key: key, p_direction: signal.state, p_entry: signal.entry, p_stop: signal.stop, p_target: signal.target, p_opened_at: opened }).catch(() => null); // tracking is optional: the signal still goes out
       const rows = await serverRpc('alerts_claim_signal', { p_key: key, p_state: signal.state });
       const chats = (rows || []).map((r) => r.chat_id);
       if (chats.length) {
@@ -64,7 +64,7 @@ export default async function handler(req, res) {
     }
 
     // 2. Follow open signals
-    const open = await serverRpc('alerts_open_trades', {});
+    const open = await serverRpc('alerts_open_trades', {}).catch(() => []);
     if (open?.length) {
       let members = null;
       for (const trade of open) {
