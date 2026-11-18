@@ -66,7 +66,7 @@ export function verdictMarkup(signal) {
   const label = loading ? 'Checking' : state.label;
   // For "no setup" the headline already carries the fixed sentence; show only the detail under it.
   let reason = loading ? 'Reading the 4H, 1H and 15M candles…' : (signal.reason || state.meaning);
-  if (!loading && signal.state === 'no-setup') reason = reason.replace(state.label, '').trim() || state.meaning;
+  if (!loading && signal.state === 'no-setup') reason = reason.replace(state.label, '').replace(/^[\s.—-]+/, '').trim() || state.meaning;
   const checks = signal?.checks || {};
   const keys = ['h4', 'h1', 'm15', null];
   const previews = signal?.previews && signal.previews.limit !== null && signal.previews.used !== null

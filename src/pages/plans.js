@@ -20,7 +20,7 @@ function compare(price, credits, hours) {
     <div class="plan-grid">
       <section class="panel plan-card"><h2>Free</h2><p class="plan-price">Open to all</p>${list(FREE)}</section>
       <section class="panel plan-card is-pro"><h2>Pro</h2><p class="plan-price">By approval</p>${list(PRO)}
-        <p class="panel-note">Access is given by the admin for a set time and ends automatically. If no setup meets the plan, Pro shows “NO VALID SETUP — AI IS WAITING.” Signals are never made up.</p></section>
+        <p class="panel-note">Access is given by the admin for a set time and ends automatically. When no setup meets the plan, it shows “Wait — the market setup is analyzing” until one does. Signals are never made up.</p></section>
     </div>`;
 }
 

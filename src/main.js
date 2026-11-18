@@ -4,6 +4,7 @@ import { renderShell, setActiveNav, setAdminNav } from './ui/shell.js';
 import { clearSignal } from './services/market.js';
 import { plansPage } from './pages/plans.js';
 import { adminPage } from './pages/admin.js';
+import { approvalGatePage } from './pages/gate.js';
 import { dashboardPage } from './pages/dashboard.js';
 import { riskPage } from './pages/risk.js';
 import { plannedPage, morePage, systemPage } from './pages/other.js';
@@ -34,6 +35,7 @@ const builtPages = {
 };
 
 const routeIds = [...SECTIONS.map((s) => s.id), 'more'];
+const OPEN_ROUTES = ['plans', 'profile', 'more', 'admin'];
 
 const root = document.getElementById('app');
 const main = renderShell(root);
@@ -43,7 +45,16 @@ let currentRoute = null;
 function render(routeId, { keepScroll = false } = {}) {
   currentRoute = routeId;
   if (cleanup) cleanup();
-  const page = builtPages[routeId] ? builtPages[routeId]() : plannedPage(routeId);
+  // Only approved members (and admins) see signal pages. Plans and Profile stay open
+  // so visitors can sign in and request approval.
+  const ent = session.get().entitlement;
+  const isAdmin = Boolean(ent?.is_admin);
+  const approved = ent?.plan === 'pro';
+  const section = SECTIONS.find((s) => s.id === routeId);
+  let page;
+  if (section?.adminOnly && !isAdmin) page = approvalGatePage(approved ? 'Dashboard' : 'Get approved');
+  else if (!OPEN_ROUTES.includes(routeId) && !approved) page = approvalGatePage('Get approved');
+  else page = builtPages[routeId] ? builtPages[routeId]() : plannedPage(routeId);
   main.innerHTML = page.html;
   cleanup = page.mount ? page.mount(main) : null;
   document.title = `${page.title} | TradeTactix AI`;

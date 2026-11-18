@@ -11,6 +11,11 @@ export function originOf(req) {
 
 /** Throws when candles are unavailable; callers decide what "offline" looks like. */
 export async function readSignal(origin, minRewardToRisk = 3) {
+  return (await readMarket(origin, minRewardToRisk)).signal;
+}
+
+/** The signal plus the raw 15M candles (including the one still forming). */
+export async function readMarket(origin, minRewardToRisk = 3) {
   const key = process.env.CANDLES_KEY;
   if (!key) throw Object.assign(new Error('candles'), { code: 'not_configured' });
   const load = async (tf) => {
@@ -20,5 +25,5 @@ export async function readSignal(origin, minRewardToRisk = 3) {
     return body.candles;
   };
   const [h4, h1, m15] = await Promise.all([load('4h'), load('1h'), load('15min')]);
-  return evaluate({ h4, h1, m15, minRewardToRisk });
+  return { signal: evaluate({ h4, h1, m15, minRewardToRisk }), m15 };
 }

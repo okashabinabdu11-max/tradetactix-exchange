@@ -29,7 +29,7 @@ export const TIMEFRAMES = [
 
 export const SIGNAL_STATES = [
   { id: 'offline', label: 'Offline', tone: 'muted', meaning: 'The market is closed or the price data cannot be read, so nothing is being analysed.' },
-  { id: 'no-setup', label: 'NO VALID SETUP — AI IS WAITING.', tone: 'muted', meaning: 'Nothing meets the plan right now. No signal is ever made up to fill the gap.' },
+  { id: 'no-setup', label: 'Wait — the market setup is analyzing', tone: 'sell', meaning: 'When the setup is ready, the signal will be sent. No signal is ever made up to fill the gap.' },
   { id: 'locked', label: 'Signal active', tone: 'gold', meaning: 'A valid setup is confirmed. Your plan decides how much of it you can see.' },
   { id: 'waiting', label: 'Waiting for confirmation', tone: 'gold', meaning: 'A level is in play and the 15M retest has not confirmed yet.' },
   { id: 'buy', label: 'Buy', tone: 'buy', meaning: 'All required timeframes agree on a long with at least 1:3 and a stop-loss of 9 dollars or less.' },
@@ -46,13 +46,13 @@ export const SECTIONS = [
   { id: 'history', label: 'History', icon: 'clock', stage: 3 },
   { id: 'analytics', label: 'Analytics', icon: 'bars', stage: 3 },
   { id: 'calendar', label: 'Calendar', icon: 'calendar', stage: 3 },
-  { id: 'reviews', label: 'AI reviews', icon: 'spark', stage: 9, summary: 'A written review of each closed trade: what followed the plan and what did not.' },
+  { id: 'reviews', label: 'AI reviews', icon: 'spark', stage: 9, adminOnly: true, summary: 'A written review of each closed trade: what followed the plan and what did not.' },
   { id: 'discipline', label: 'Discipline', icon: 'target', stage: 3 },
-  { id: 'account', label: 'Exness MT5', icon: 'link', stage: 8, summary: 'Connect your Exness MT5 account to show balance, open positions and trade history. The connection starts read-only.' },
+  { id: 'account', label: 'Exness MT5', icon: 'link', stage: 8, adminOnly: true, summary: 'Connect your Exness MT5 account to show balance, open positions and trade history. The connection starts read-only.' },
   { id: 'plans', label: 'Plans', icon: 'star', stage: 7 },
   { id: 'profile', label: 'Profile', icon: 'user', stage: 2 },
   { id: 'admin', label: 'Admin', icon: 'key', stage: 7, adminOnly: true },
-  { id: 'system', label: 'System', icon: 'gear', stage: 1 },
+  { id: 'system', label: 'System', icon: 'gear', stage: 1, adminOnly: true },
 ];
 
 export const sectionById = (id) => SECTIONS.find((s) => s.id === id);

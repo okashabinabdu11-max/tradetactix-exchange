@@ -67,7 +67,7 @@ test('no setup shows the exact waiting message and never a made-up signal', () =
   for (const who of [ANON, FREE]) {
     const g = gateSignal(NONE, who);
     assert.equal(g.state, 'no-setup');
-    assert.equal(g.reason, 'NO VALID SETUP — AI IS WAITING.');
+    assert.equal(g.reason, 'Wait — the market setup is analyzing. When the setup is ready, the signal will be sent.');
     assert.equal(g.direction, undefined);
     assert.deepEqual(leaks(g), []);
   }

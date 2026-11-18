@@ -7,7 +7,7 @@
 //
 // Nothing here creates a signal: it only removes detail from a real one.
 
-export const NO_SETUP_TEXT = 'NO VALID SETUP — AI IS WAITING.';
+export const NO_SETUP_TEXT = 'Wait — the market setup is analyzing. When the setup is ready, the signal will be sent.';
 
 const flags = (checks) => (checks ? {
   h4: checks.h4 ? { ok: checks.h4.ok } : null,
