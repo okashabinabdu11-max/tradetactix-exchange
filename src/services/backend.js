@@ -266,6 +266,24 @@ export const createTelegramCode = () => call('create_telegram_link_code');
 export const unlinkTelegram = () => call('unlink_my_telegram');
 export const adminRecentAlerts = () => call('admin_recent_alerts');
 
+// ---------- Access requests ----------
+
+export const getMyAccessRequest = () => rows((c) => c.from('access_requests').select('*').eq('user_id', session.get().user?.id).order('created_at', { ascending: false })).then((r) => (r.ok ? { ok: true, data: r.data[0] || null } : r));
+export const requestAccess = (telegram, note) => call('request_access', { p_telegram: telegram, p_note: note || '' });
+export const adminListAccessRequests = (status = 'pending') => call('admin_list_access_requests', { p_status: status });
+export const adminReviewAccess = (id, approve, hours, note = '') => call('admin_review_access', { p_id: id, p_approve: approve, p_hours: hours, p_note: note });
+export const adminGrantHours = (userId, hours, note = '') => call('admin_grant_hours', { p_user: userId, p_hours: hours, p_note: note });
+export const adminEndAccess = (userId, note = '') => call('admin_end_access', { p_user: userId, p_note: note });
+
+/** Best effort: a Telegram notice about a request. Never blocks or fails the action itself. */
+export async function notifyAccess(kind, requestId) {
+  try {
+    const token = await getAccessToken();
+    if (!token) return;
+    await fetch('/api/access-notify', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ kind, requestId }) });
+  } catch { /* ignore */ }
+}
+
 export async function adminSetupTelegram() {
   const token = await getAccessToken();
   if (!token) return { ok: false, message: 'Sign in first.' };

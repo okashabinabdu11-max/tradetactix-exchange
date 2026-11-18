@@ -636,3 +636,18 @@ a { color: inherit; text-decoration: none; }
 .alerts .panel-title, .alerts .panel-note { margin: 0; }
 .alerts .button { margin-top: 0; }
 .alerts-on { color: var(--buy); font-weight: 600; }
+
+/* ---------- Access requests ---------- */
+.access { display: grid; gap: 10px; }
+.access .panel-title, .access .panel-note { margin: 0; }
+.access-wait { font-family: var(--font-display); font-weight: 700; font-size: 26px; line-height: 1.15; color: var(--gold); }
+.access-form { display: grid; gap: 12px; }
+.access-form .button { justify-self: start; }
+.access-email { font-weight: 600; overflow-wrap: anywhere; }
+.dur-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.dur-row .button, .dur-custom .button, .user-grant .button { margin-top: 0; }
+.dur-custom { display: grid; grid-template-columns: 110px 100px auto; gap: 8px; align-items: center; margin-top: 8px; }
+.dur-custom input, .dur-custom select { min-height: 44px; padding: 0 10px; background: var(--base); color: var(--text); border: 1px solid var(--line); border-radius: var(--r-md); font: inherit; font-size: 16px; color-scheme: dark; }
+.user-grant { display: grid; gap: 8px; justify-items: start; }
+.user-grant .form-status { min-height: 0; }
+@media (max-width: 400px) { .dur-custom { grid-template-columns: 1fr 1fr; } .dur-custom .button { grid-column: 1 / -1; justify-self: start; } }

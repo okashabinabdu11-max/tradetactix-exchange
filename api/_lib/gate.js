@@ -57,7 +57,9 @@ export function gateSignal(signal, entitlement, preview = null) {
   if (!preview || !preview.allowed) {
     return {
       ...base, state: 'locked', access: 'limited', checks: null,
-      reason: preview && preview.limit !== null
+      reason: preview && preview.limit === 0
+        ? 'A signal is active. Signals are for approved members: request access on the Plans page.'
+        : preview && preview.limit !== null
         ? `A signal is active. You have used all ${preview.limit} free previews this month.`
         : 'A signal is active, but your preview could not be checked. Try again shortly.',
       previews: preview ? { used: preview.used, limit: preview.limit } : null,

@@ -5,7 +5,7 @@ import { session } from '../state/session.js';
 import {
   adminOverview, adminListClaims, adminReviewClaim, adminListUsers, adminGrantCredits,
   adminUpdateSettings, adminSetNetwork, adminVerifyPayment, listNetworks, getPlanSettings,
-  adminSetupTelegram, adminRecentAlerts,
+  adminSetupTelegram, adminRecentAlerts, adminListAccessRequests, adminReviewAccess, adminGrantHours, adminEndAccess, notifyAccess,
 } from '../services/backend.js';
 import { escapeHtml } from '../lib/format.js';
 
@@ -26,6 +26,35 @@ function checkResult(r) {
   if (!r) return '<span class="chk chk-none">Not checked</span>';
   if (r.ok) return `<span class="chk chk-ok">Passed: ${escapeHtml(r.received)} USDT, ${r.confirmations} confirmations</span>`;
   return `<span class="chk chk-fail">Failed: ${escapeHtml((r.problems || []).join(' '))}</span>`;
+}
+
+const DURATIONS = [['24 hours', 24], ['7 days', 168], ['30 days', 720]];
+const plainLength = (h) => (h % 24 === 0 ? `${h / 24} day${h === 24 ? '' : 's'}` : `${h} hour${h === 1 ? '' : 's'}`);
+
+function durationPicker(prefix) {
+  return `
+    <div class="dur-row">${DURATIONS.map(([label, h]) => `<button class="button button-quiet" type="button" data-${prefix}="${h}">${label}</button>`).join('')}</div>
+    <div class="dur-custom"><input type="number" min="1" max="365" step="1" placeholder="Custom" data-custom-n />
+      <select data-custom-unit><option value="24">days</option><option value="1">hours</option></select>
+      <button class="button button-quiet" type="button" data-${prefix}="custom">Give custom</button></div>`;
+}
+
+function requestsSection(requests, tab) {
+  const tabBtn = (id, label) => `<button type="button" class="tab-btn" data-rtab="${id}" aria-pressed="${tab === id}">${label}</button>`;
+  const rows = requests.map((r) => `
+    <li class="admin-claim" data-request="${r.id}">
+      <div class="admin-claim-top"><strong>${escapeHtml(r.email)}</strong><a class="inline-link" href="https://t.me/${escapeHtml(r.telegram_username)}" target="_blank" rel="noopener">@${escapeHtml(r.telegram_username)}</a><span class="claim-status is-${r.status === 'pending' ? 'pending' : r.status}">${r.status}</span></div>
+      <div class="admin-claim-hash">Sent ${dateTime(r.created_at)} · Telegram ${r.telegram_linked ? 'connected to the bot' : 'not connected to the bot yet'}${r.note ? ` · “${escapeHtml(r.note)}”` : ''}</div>
+      ${r.status === 'pending' ? `<p class="field-label">Approve for</p>${durationPicker('approve')}<div class="admin-actions"><button class="button button-quiet is-danger" type="button" data-reject>Reject</button></div>`
+        : r.status === 'approved' ? `<div class="admin-claim-hash">Approved for ${plainLength(r.granted_hours)}, until ${dateTime(r.granted_until)}</div>` : ''}
+    </li>`).join('');
+  return `
+    <section class="panel admin-section">
+      <h2 class="panel-title">Access requests</h2>
+      <div class="tab-row">${tabBtn('pending', 'Waiting')}${tabBtn('all', 'All')}</div>
+      ${rows ? `<ul class="admin-claims">${rows}</ul>` : '<p class="result-empty">No requests waiting.</p>'}
+      <p class="panel-note">Access ends automatically at the time shown; signals and Telegram alerts stop for that person then.</p>
+    </section>`;
 }
 
 function claimsSection(claims, tab) {
@@ -137,7 +166,7 @@ function usersSection(users) {
           <li data-user="${u.user_id}">
             <div><strong>${escapeHtml(u.email || '(no email)')}</strong>${u.is_admin ? ' <span class="tag">Admin</span>' : ''}</div>
             <div class="user-meta">Joined ${dateTime(u.created_at)} · ${u.is_admin ? 'Unlimited' : u.pro_until && new Date(u.pro_until) > new Date() ? `Pro until ${dateTime(u.pro_until)}` : 'Free'}</div>
-            ${u.is_admin ? '' : `<form class="grant-form" novalidate><input name="credits" type="number" step="1" min="-3650" max="3650" placeholder="Credits, e.g. 30 or -5" /><input name="note" type="text" placeholder="Note" maxlength="200" /><button class="button button-quiet" type="submit">Apply</button><span class="form-status" role="status"></span></form>`}
+            ${u.is_admin ? '' : `<div class="user-grant">${durationPicker('grant')}${u.pro_until && new Date(u.pro_until) > new Date() ? '<button class="button button-quiet is-danger" type="button" data-end>End access now</button>' : ''}<span class="form-status" role="status"></span></div>`}
           </li>`).join('') || '<li class="result-empty">No users found.</li>'}
       </ul>
     </section>`;
@@ -156,7 +185,7 @@ export function adminPage() {
     mount(root) {
       const box = root.querySelector('#admin-view');
       let alive = true;
-      const state = { tab: 'pending', claims: [], networks: [], settings: null, users: [], overview: null, error: null, alerts: [] };
+      const state = { tab: 'pending', claims: [], networks: [], settings: null, users: [], overview: null, error: null, alerts: [], rtab: 'pending', requests: [] };
 
       const draw = () => {
         if (!alive) return;
@@ -164,12 +193,14 @@ export function adminPage() {
         const o = state.overview;
         box.innerHTML = `
           <dl class="panel stats admin-stats">
+            <div class="stat"><dt>Requests</dt><dd>${state.requests.filter((r) => r.status === 'pending').length}</dd><dd class="sub">waiting</dd></div>
             <div class="stat"><dt>Revenue</dt><dd>${money(o.revenue_usdt)}</dd><dd class="sub">USDT approved</dd></div>
             <div class="stat"><dt>Active Pro</dt><dd>${o.active_subscribers}</dd></div>
             <div class="stat"><dt>To review</dt><dd>${o.pending_claims}</dd></div>
             <div class="stat"><dt>Not paid yet</dt><dd>${o.awaiting_payments}</dd></div>
             <div class="stat"><dt>Users</dt><dd>${o.users}</dd></div>
           </dl>
+          ${requestsSection(state.requests, state.rtab)}
           ${claimsSection(state.claims, state.tab)}
           ${testSection(state.networks)}
           ${networksSection(state.networks)}
@@ -179,18 +210,77 @@ export function adminPage() {
       };
 
       const loadClaims = async () => { const r = await adminListClaims(state.tab); state.claims = r.ok ? r.data : []; };
+      const loadRequests = async () => { const r = await adminListAccessRequests(state.rtab); state.requests = r.ok ? r.data : []; };
       const loadAll = async () => {
         const [o, n, s, u] = await Promise.all([adminOverview(), listNetworks(), getPlanSettings(), adminListUsers('')]);
         if (!o.ok) { state.error = o.message; draw(); return; }
         state.overview = o.data; state.networks = n.ok ? n.data : []; state.settings = s.ok ? s.data : {}; state.users = u.ok ? u.data : [];
         const al = await adminRecentAlerts(); state.alerts = al.ok ? al.data : [];
-        await loadClaims();
+        await Promise.all([loadClaims(), loadRequests()]);
         draw();
       };
       const refreshOverview = async () => { const o = await adminOverview(); if (o.ok) state.overview = o.data; };
       const formStatus = (form, text, tone = '') => { const el = form.querySelector('.form-status'); if (el) { el.textContent = text; el.className = `form-status ${tone}`; } };
 
       box.addEventListener('click', async (e) => {
+        const rtab = e.target.closest('[data-rtab]');
+        if (rtab) { state.rtab = rtab.dataset.rtab; await loadRequests(); draw(); return; }
+
+        const hoursFrom = (btn, attr) => {
+          const v = btn.getAttribute(attr);
+          if (v !== 'custom') return Number(v);
+          const wrap = btn.closest('.dur-custom');
+          const n = Number(wrap.querySelector('[data-custom-n]').value);
+          if (!Number.isInteger(n) || n < 1) return null;
+          return n * Number(wrap.querySelector('[data-custom-unit]').value);
+        };
+
+        const approve = e.target.closest('[data-approve]');
+        if (approve) {
+          const li = approve.closest('[data-request]');
+          const hours = hoursFrom(approve, 'data-approve');
+          if (!hours) { li.insertAdjacentHTML('beforeend', '<p class="form-status is-error">Enter a custom number first.</p>'); return; }
+          approve.disabled = true;
+          const r = await adminReviewAccess(li.dataset.request, true, hours, '');
+          if (!r.ok) { approve.disabled = false; li.insertAdjacentHTML('beforeend', `<p class="form-status is-error">${escapeHtml(r.message)}</p>`); return; }
+          notifyAccess('approved', li.dataset.request);
+          await Promise.all([loadRequests(), refreshOverview()]);
+          const u = await adminListUsers(''); state.users = u.ok ? u.data : state.users;
+          draw();
+          return;
+        }
+        const reject = e.target.closest('[data-reject]');
+        if (reject) {
+          const li = reject.closest('[data-request]');
+          const note = window.prompt ? window.prompt('Reason shown to the person (optional):', '') : '';
+          if (note === null) return;
+          const r = await adminReviewAccess(li.dataset.request, false, null, note || '');
+          if (!r.ok) { li.insertAdjacentHTML('beforeend', `<p class="form-status is-error">${escapeHtml(r.message)}</p>`); return; }
+          await loadRequests(); draw();
+          return;
+        }
+        const grant = e.target.closest('[data-grant]');
+        const end = e.target.closest('[data-end]');
+        if (grant || end) {
+          const wrap = (grant || end).closest('.user-grant');
+          const out = wrap.querySelector('.form-status');
+          const id = (grant || end).closest('[data-user]').dataset.user;
+          let r;
+          if (grant) {
+            const hours = hoursFrom(grant, 'data-grant');
+            if (!hours) { out.textContent = 'Enter a custom number first.'; out.className = 'form-status is-error'; return; }
+            r = await adminGrantHours(id, hours, 'Given from Admin');
+          } else {
+            r = await adminEndAccess(id, 'Ended from Admin');
+          }
+          if (!r.ok) { out.textContent = r.message; out.className = 'form-status is-error'; return; }
+          const u = await adminListUsers(root.querySelector('#user-search').elements.q.value.trim());
+          state.users = u.ok ? u.data : state.users;
+          await refreshOverview();
+          draw();
+          return;
+        }
+
         const tab = e.target.closest('[data-tab]');
         if (tab) { state.tab = tab.dataset.tab; await loadClaims(); draw(); return; }
 
@@ -295,17 +385,7 @@ export function adminPage() {
           draw();
           return;
         }
-        if (f.classList.contains('grant-form')) {
-          const credits = Number(f.elements.credits.value);
-          if (!Number.isInteger(credits) || credits === 0) { formStatus(f, 'Enter a whole number of credits, not zero.', 'is-error'); return; }
-          const id = f.closest('[data-user]').dataset.user;
-          const r = await adminGrantCredits(id, credits, f.elements.note.value.trim());
-          if (!r.ok) { formStatus(f, r.message, 'is-error'); return; }
-          const u = await adminListUsers(root.querySelector('#user-search').elements.q.value.trim());
-          state.users = u.ok ? u.data : state.users;
-          await refreshOverview();
-          draw();
-        }
+
       });
 
       loadAll();

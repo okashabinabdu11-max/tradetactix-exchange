@@ -13,6 +13,8 @@ grant execute on all functions in schema pg_temp to authenticated, anon;
 \set h1upper '''0X1111111111111111111111111111111111111111111111111111111111111111'''
 \set h2 '''0x2222222222222222222222222222222222222222222222222222222222222222'''
 
+-- 0005 switches free previews off; these tests cover the preview mechanism itself.
+update public.app_settings set free_previews_per_month = 10 where id;
 set role authenticated;
 
 -- 1. Anonymous and free entitlements

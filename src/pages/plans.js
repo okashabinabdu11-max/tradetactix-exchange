@@ -3,14 +3,14 @@
 // administrator approves a payment whose on-chain check passed.
 
 import { session } from '../state/session.js';
-import { getPlanSettings, listNetworks, listMyClaims, startPayment, submitClaim, refreshEntitlement, getMyTelegram, createTelegramCode, unlinkTelegram } from '../services/backend.js';
+import { getPlanSettings, listNetworks, listMyClaims, startPayment, submitClaim, refreshEntitlement, getMyTelegram, createTelegramCode, unlinkTelegram, getMyAccessRequest, requestAccess, notifyAccess } from '../services/backend.js';
 import { isSupabaseConfigured } from '../config.js';
 import { escapeHtml } from '../lib/format.js';
 
 const dateTime = (iso) => new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 const money = (n) => Number(n).toFixed(2);
 
-const FREE = ['10 signal previews a month: direction and timeframe only', 'No entry price, stop-loss or take-profit', 'Basic personal trading journal', 'No premium alerts or automatic trading'];
+const FREE = ['Signal state only: no direction, entry, stop-loss or take-profit', 'Basic personal trading journal', 'No Telegram alerts or automatic trading'];
 const PRO = ['Full BUY and SELL signals', 'Exact entry, stop-loss and take-profit, at least 1:3', 'Technical and fundamental analysis', 'Advanced journal: history, analytics, calendar, discipline', 'Premium alerts and AI trade reviews, as they launch'];
 
 function compare(price, credits, hours) {
@@ -29,11 +29,39 @@ function statusPanel(e) {
   if (e.unlimited) return '<section class="panel status-card"><p class="panel-kicker">Your plan</p><p class="status-plan">Pro, unlimited</p><p class="panel-note">Administrator account.</p></section>';
   if (e.plan === 'pro') {
     return `<section class="panel status-card"><p class="panel-kicker">Your plan</p><p class="status-plan">Pro</p>
-      <dl class="quote quote-two"><div><dt>Credits left</dt><dd>${e.credits}</dd></div><div><dt>Pro until</dt><dd class="status-date">${dateTime(e.pro_until)}</dd></div></dl>
-      <p class="panel-note">Buying more adds days on top of what you have.</p></section>`;
+      <dl class="quote quote-two"><div><dt>Days left</dt><dd>${e.credits}</dd></div><div><dt>Access until</dt><dd class="status-date">${dateTime(e.pro_until)}</dd></div></dl>
+      <p class="panel-note">Signals and alerts stop automatically at this time unless your access is extended.</p></section>`;
   }
   return `<section class="panel status-card"><p class="panel-kicker">Your plan</p><p class="status-plan">Free</p>
-    <dl class="quote quote-two"><div><dt>Credits</dt><dd>0</dd></div><div><dt>Previews this month</dt><dd>${e.previews_used} of ${e.previews_limit}</dd></div></dl></section>`;
+    <p class="panel-note">No signal access yet.</p></section>`;
+}
+
+function accessPanel(request, email) {
+  const head = '<h2 class="panel-title">Signal access</h2>';
+  if (request?.status === 'pending') {
+    return `<section class="panel access">${head}
+      <p class="access-wait">Request sent. Wait until the admin approves you.</p>
+      <dl class="kv"><dt>Email</dt><dd>${escapeHtml(request.email)}</dd><dt>Telegram</dt><dd>@${escapeHtml(request.telegram_username)}</dd><dt>Sent</dt><dd>${dateTime(request.created_at)}</dd></dl>
+      <p class="panel-note">You'll see full signals here and get Telegram alerts as soon as you're approved. Connect Telegram below now so alerts can reach you.</p>
+    </section>`;
+  }
+  const before = request?.status === 'rejected'
+    ? `<p class="form-status is-error">Your last request was not approved${request.admin_note ? `: ${escapeHtml(request.admin_note)}` : '.'} You can send a new one.</p>`
+    : request?.status === 'approved' ? '<p class="panel-note">Your previous access has ended. Send a new request to continue.</p>' : '';
+  return `<section class="panel access">${head}
+    <p class="panel-note">Signals are for approved members. Send your details and the admin will choose how long your access lasts.</p>
+    ${before}
+    <form id="access-form" class="access-form" novalidate>
+      <div class="field"><span class="field-label">Email</span><p class="access-email">${escapeHtml(email || '')}</p></div>
+      <label class="field" for="tg-user"><span class="field-label">Telegram username</span>
+        <input id="tg-user" name="tg" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="@yourname" />
+        <span class="field-hint">In Telegram: Settings → your profile → Username.</span></label>
+      <label class="field" for="access-note"><span class="field-label">Message to the admin (optional)</span>
+        <input id="access-note" name="note" type="text" maxlength="300" autocomplete="off" /></label>
+      <button class="button button-primary" type="submit">Request access</button>
+      <p id="access-status" class="form-status" role="status"></p>
+    </form>
+  </section>`;
 }
 
 function alertsPanel(settings, entitlement, link, code) {
@@ -47,9 +75,8 @@ function alertsPanel(settings, entitlement, link, code) {
       <p class="panel-note">You get a message from @${escapeHtml(bot)} when a BUY or SELL signal appears, with entry, stop-loss and take-profit.</p>
       <button class="button button-quiet" type="button" data-telegram="off">Turn off alerts</button></section>`;
   }
-  if (!pro) return `<section class="panel alerts">${head}<p class="result-empty">Instant BUY and SELL alerts on Telegram are part of Pro.</p></section>`;
   return `<section class="panel alerts">${head}
-    <p class="panel-note">Get a Telegram message the moment a BUY or SELL signal appears.</p>
+    <p class="panel-note">${pro ? 'Get a Telegram message the moment a BUY or SELL signal appears.' : 'Connect now so BUY and SELL alerts reach you as soon as your access is approved. Nothing is sent before that.'}</p>
     ${code ? `<a class="button button-primary" href="https://t.me/${escapeHtml(bot)}?start=${escapeHtml(code)}" target="_blank" rel="noopener">Open Telegram and tap Start</a>
       <p class="panel-note">The link works for 15 minutes. After tapping Start in Telegram, come back and reload this page.</p>`
       : '<button class="button button-primary" type="button" data-telegram="link">Connect Telegram</button>'}
@@ -111,6 +138,7 @@ export function plansPage() {
       let settings = null;
       let telegramLink = null;
       let telegramCode = null;
+      let accessRequest = null;
 
       const draw = () => {
         if (!alive) return;
@@ -119,7 +147,7 @@ export function plansPage() {
         let body = compare(price, credits, hours);
         if (!user) body = `${body}<section class="panel"><p class="result-empty">Sign in to see your credits and buy Pro.</p><a class="button button-quiet" href="#/profile">Sign in</a></section>`;
         else if (entitlement?.unlimited) body = statusPanel(entitlement) + alertsPanel(settings, entitlement, telegramLink, telegramCode) + body;
-        else body = statusPanel(entitlement) + alertsPanel(settings, entitlement, telegramLink, telegramCode) + body + payPanel(networks, open) + claimsList(claims);
+        else body = statusPanel(entitlement) + (entitlement?.plan === 'pro' ? '' : accessPanel(accessRequest, user.email)) + alertsPanel(settings, entitlement, telegramLink, telegramCode) + body + payPanel(networks, open) + claimsList(claims);
         box.innerHTML = body;
       };
 
@@ -128,8 +156,9 @@ export function plansPage() {
         const s = await getPlanSettings();
         settings = s.ok ? s.data : null;
         if (user) {
-          const [n, c, t] = await Promise.all([listNetworks(), listMyClaims(), getMyTelegram()]);
+          const [n, c, t, a] = await Promise.all([listNetworks(), listMyClaims(), getMyTelegram(), getMyAccessRequest()]);
           telegramLink = t.ok ? t.data : null;
+          accessRequest = a.ok ? a.data : null;
           networks = n.ok ? n.data : [];
           claims = c.ok ? c.data : [];
           open = claims.find((x) => x.status === 'awaiting' && new Date(x.expires_at) > new Date()) || null;
@@ -175,6 +204,21 @@ export function plansPage() {
       });
 
       box.addEventListener('submit', async (e) => {
+        if (e.target.id === 'access-form') {
+          e.preventDefault();
+          const f = e.target;
+          const st = f.querySelector('#access-status');
+          const tg = f.elements.tg.value.trim().replace(/^@/, '');
+          if (!/^[A-Za-z0-9_]{5,32}$/.test(tg)) { st.textContent = 'Enter your Telegram username: 5 to 32 letters, numbers or underscores.'; st.className = 'form-status is-error'; return; }
+          f.querySelector('button').disabled = true;
+          st.textContent = 'Sending…'; st.className = 'form-status';
+          const r = await requestAccess(tg, f.elements.note.value);
+          if (!r.ok) { f.querySelector('button').disabled = false; st.textContent = r.message; st.className = 'form-status is-error'; return; }
+          accessRequest = r.data;
+          draw();
+          notifyAccess('request', r.data.id);
+          return;
+        }
         if (e.target.id !== 'hash-form') return;
         e.preventDefault();
         const hash = e.target.elements.tx.value.trim();

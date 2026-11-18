@@ -147,3 +147,10 @@ test('signal endpoint: a broken entitlement check is treated as signed out', asy
   assert.equal(res.body.access, 'anonymous');
   assert.ok(urls.some((u) => u.includes('/api/candles?tf=4h&k=internal-secret-0123456789')));
 });
+
+test('with free previews switched off, a free user is pointed to requesting access', () => {
+  const g = gateSignal(BUY, FREE, { allowed: false, used: 0, limit: 0 });
+  assert.equal(g.state, 'locked');
+  assert.match(g.reason, /request access on the Plans page/);
+  assert.deepEqual(leaks(g), []);
+});

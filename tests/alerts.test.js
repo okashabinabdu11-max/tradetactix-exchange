@@ -134,3 +134,24 @@ test('bot setup is for administrators only and registers the webhook with the se
     assert.ok(!JSON.stringify(r.body).includes('123:abc'), 'the bot token never leaves the server');
   });
 });
+
+import accessNotify from '../api/access-notify.js';
+
+test('access notices: sign-in required, approvals are admin-only, bad input refused', async () => {
+  let admin = false;
+  await withFetch((c) => (c.url.endsWith('/rpc/my_entitlement') ? json({ signed_in: true, is_admin: admin }) : json([])), async () => {
+    const anon = fakeRes();
+    await accessNotify({ method: 'POST', headers: {}, body: { kind: 'request', requestId: '00000000-0000-4000-8000-000000000001' } }, anon);
+    assert.equal(anon.code, 401);
+    const auth = { authorization: `Bearer ${'t'.repeat(40)}` };
+    const notAdmin = fakeRes();
+    await accessNotify({ method: 'POST', headers: auth, body: { kind: 'approved', requestId: '00000000-0000-4000-8000-000000000001' } }, notAdmin);
+    assert.equal(notAdmin.code, 403);
+    const bad = fakeRes();
+    await accessNotify({ method: 'POST', headers: auth, body: { kind: 'spam', requestId: 'x' } }, bad);
+    assert.equal(bad.code, 400);
+    const unseen = fakeRes();
+    await accessNotify({ method: 'POST', headers: auth, body: { kind: 'request', requestId: '00000000-0000-4000-8000-000000000001' } }, unseen);
+    assert.equal(unseen.code, 404, 'a request the caller cannot see is not found');
+  });
+});
