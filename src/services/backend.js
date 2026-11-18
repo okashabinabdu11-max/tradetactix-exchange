@@ -15,7 +15,7 @@ const NOT_CONFIGURED = 'The database is not set up for this site.';
 function friendly(error) {
   const msg = String(error?.message || error || 'Something went wrong.');
   if (/invalid login credentials/i.test(msg)) return 'Wrong email or password.';
-  if (/email not confirmed/i.test(msg)) return 'Confirm your email first: open the link in the message Supabase sent you.';
+  if (/email not confirmed/i.test(msg)) return 'Confirm your email first: open the link we sent to your inbox. Check your spam folder too.';
   if (/already registered/i.test(msg)) return 'An account with this email already exists. Tap Open Account with your password.';
   if (/signups? (are |is )?(not allowed|disabled)/i.test(msg)) return 'New accounts are switched off for this site.';
   if (/rate limit|too many requests|security purposes/i.test(msg)) return 'Too many attempts. Wait a few minutes, then try again.';
@@ -96,6 +96,7 @@ export async function openAccount(email, password) {
   if (!client) return { ok: false, message: NOT_CONFIGURED };
   const first = await client.auth.signInWithPassword({ email, password });
   if (!first.error) return { ok: true, created: false };
+  if (/email not confirmed/i.test(first.error.message || '')) return { ok: false, code: 'unconfirmed', message: friendly(first.error) };
   if (!/invalid login credentials/i.test(first.error.message || '')) return { ok: false, message: friendly(first.error) };
   if (!isStrongPassword(password)) {
     return { ok: false, code: 'weak', message: 'Wrong password for this email. New here? Choose a strong password that meets every rule below.' };

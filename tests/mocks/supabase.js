@@ -163,6 +163,7 @@ export function createClient(url, key) {
       async signInWithPassword({ email, password }) {
         const acct = accounts.get(email);
         if (!acct || acct.password !== password) return { data: { user: null, session: null }, error: { message: 'Invalid login credentials' } };
+        if (opts.get('confirm') === 'on' && acct.unconfirmed) return { data: { user: null, session: null }, error: { message: 'Email not confirmed' } };
         current = { access_token: 'test-token', user: { id: acct.id, email } };
         emit('SIGNED_IN');
         return { data: { user: current.user, session: current }, error: null };
@@ -171,7 +172,7 @@ export function createClient(url, key) {
         // Like the real service: an existing email gets a look-alike success with no identities.
         if (accounts.has(email)) return { data: { user: { id: 'hidden', email, identities: [] }, session: null }, error: null };
         const id = `user-${accounts.size + 1}`;
-        accounts.set(email, { id, password });
+        accounts.set(email, { id, password, unconfirmed: opts.get('confirm') === 'on' });
         return { data: { user: { id, email, identities: [{ provider: 'email' }] }, session: null }, error: null }; // confirmation required
       },
       async resend({ email }) {

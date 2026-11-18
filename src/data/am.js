@@ -98,6 +98,11 @@ export const AM = {
     'ለዚህ ኢሜይል የተሳሳተ የይለፍ ቃል። አዲስ ነዎት? ከታች ያሉትን ሁሉንም ህጎች የሚያሟላ ጠንካራ የይለፍ ቃል ይምረጡ።',
   'Enter your email and password, then tap Open Account.': 'ኢሜይልዎን እና የይለፍ ቃልዎን ያስገቡ፣ ከዚያ መለያ ክፈትን ይንኩ።',
   'Sign out': 'ውጣ',
+  'Check your email to finish opening your account.': 'መለያዎን መክፈት ለመጨረስ ኢሜይልዎን ይመልከቱ።',
+  'We sent a confirmation link to': 'የማረጋገጫ ሊንክ ልከናል ወደ',
+  'Tap it, then come back and tap Open Account. Check your spam folder too.': 'ሊንኩን ይንኩ፣ ከዚያ ተመልሰው መለያ ክፈትን ይንኩ። የስፓም ፎልደርዎንም ይመልከቱ።',
+  'Send the confirmation email again': 'የማረጋገጫ ኢሜይሉን እንደገና ላክ',
+  'Confirm your email first: open the link we sent to your inbox. Check your spam folder too.': 'መጀመሪያ ኢሜይልዎን ያረጋግጡ፦ ወደ ኢሜይልዎ የላክነውን ሊንክ ይክፈቱ። የስፓም ፎልደርዎንም ይመልከቱ።',
   'Checking sign-in…': 'በመፈተሽ ላይ…',
 
   // Approval screen

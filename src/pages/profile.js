@@ -37,7 +37,7 @@ export function signedOutMarkup(notice) {
       </div>
       <p class="field-hint">${t(`Already have an account? The same button opens it.`)}</p>
       <p id="auth-status" class="form-status" role="status"></p>
-      <button class="link-button" type="button" id="resend" hidden>Send the confirmation email again</button>
+      <button class="link-button" type="button" id="resend" hidden>${t('Send the confirmation email again')}</button>
       <p class="panel-note">${t(`Your account stores your risk limits now, and your journal and trade history in later stages. Only you can read them.`)}</p>
     </form>`;
 }
@@ -140,10 +140,15 @@ export function profilePage() {
           const res = await openAccount(email, password);
           buttons.forEach((b) => { b.disabled = false; });
 
-          if (!res.ok) { setStatus(t(res.message), 'is-error'); if (res.code === 'weak') root.querySelector('#pw-rules')?.classList.add('is-attention'); return; }
+          if (!res.ok) {
+            setStatus(t(res.message), 'is-error');
+            if (res.code === 'weak') root.querySelector('#pw-rules')?.classList.add('is-attention');
+            if (res.code === 'unconfirmed') { resend.dataset.email = email; resend.hidden = false; }
+            return;
+          }
           if (res.needsConfirmation) {
             form.elements.password.value = '';
-            setStatus(`Account opened. Open the confirmation link sent to ${email}, then tap Open Account again. Check your spam folder too.`, 'is-ok');
+            setStatus(`${t('Check your email to finish opening your account.')} ${t('We sent a confirmation link to')} ${email}. ${t('Tap it, then come back and tap Open Account. Check your spam folder too.')}`, 'is-ok');
             resend.dataset.email = email;
             resend.hidden = false;
           }
