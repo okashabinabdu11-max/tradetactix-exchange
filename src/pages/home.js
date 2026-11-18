@@ -6,7 +6,32 @@ import { session } from '../state/session.js';
 import { isSupabaseConfigured } from '../config.js';
 import { escapeHtml } from '../lib/format.js';
 import { profilePage, signedOutMarkup } from './profile.js';
+import { getSignalStats } from '../services/backend.js';
 import { themeToggle } from '../ui/theme.js';
+
+const CHANNEL = 'https://t.me/Tradetactix';
+
+// One card per period. Win rate = TP / (TP + SL); breakeven closes are listed, not counted.
+function statCard(title, s) {
+  const decided = s.wins + s.losses;
+  const pips = Math.round(Number(s.pips) || 0);
+  const total = decided + s.breakeven;
+  return `
+    <div class="stat-card">
+      <h3>${title}</h3>
+      ${total === 0
+        ? '<p class="stat-rate is-empty">—</p><p class="stat-line">No signals closed yet in this period.</p>'
+        : `<p class="stat-rate">${decided ? `${Math.round((s.wins / decided) * 100)}%` : '—'}<span>win rate</span></p>
+           <p class="stat-line"><span class="tone-green">${s.wins} TP</span> · <span class="tone-red">${s.losses} SL</span>${s.breakeven ? ` · <span class="tone-blue">${s.breakeven} BE</span>` : ''}</p>
+           <p class="stat-line">${pips > 0 ? '+' : pips < 0 ? '−' : ''}${Math.abs(pips)} pips</p>`}
+    </div>`;
+}
+
+function statsMarkup(rows) {
+  const by = Object.fromEntries((rows || []).map((r) => [r.period, { wins: Number(r.wins) || 0, losses: Number(r.losses) || 0, breakeven: Number(r.breakeven) || 0, pips: r.pips }]));
+  const zero = { wins: 0, losses: 0, breakeven: 0, pips: 0 };
+  return statCard('Last 7 days', by.week || zero) + statCard('Last 30 days', by.month || zero);
+}
 
 const STAGES = [
   ['yellow', 'Analyzing'],
@@ -63,6 +88,17 @@ export function homePage() {
           </ul>
         </section>
 
+        <section class="home-stats" aria-labelledby="stats-title">
+          <h2 id="stats-title">Signal results</h2>
+          <div class="stat-grid" id="stat-grid"><p class="result-empty">Loading results…</p></div>
+          <p class="home-note">Counted automatically from every signal the bot sent, when it hit TP, SL or breakeven. Past results do not guarantee future results.</p>
+        </section>
+
+        <section class="home-channel">
+          <div><h2>Join our Telegram channel</h2><p>News, updates and results from TradeTactix: <strong>@Tradetactix</strong></p></div>
+          <a class="button button-primary" href="${CHANNEL}" target="_blank" rel="noopener" id="channel-link">Join @Tradetactix</a>
+        </section>
+
         <section class="home-auth" id="home-auth" aria-labelledby="home-auth-title">
           <h2 id="home-auth-title">${user ? 'Your account' : 'Create your account or sign in'}</h2>
           ${account}
@@ -103,8 +139,14 @@ export function homePage() {
       };
       const onClick = (e) => { const b = e.target.closest('[data-auth]'); if (b) choose(b.dataset.auth); };
       root.addEventListener('click', onClick);
+      let alive = true;
+      getSignalStats().then((res) => {
+        const grid = root.querySelector('#stat-grid');
+        if (!alive || !grid) return;
+        grid.innerHTML = res.ok ? statsMarkup(res.data) : '<p class="result-empty">Results are not available right now.</p>';
+      });
       const formCleanup = root.querySelector('#auth-form') ? profilePage().mount(root) : null;
-      return () => { root.removeEventListener('click', onClick); if (typeof formCleanup === 'function') formCleanup(); };
+      return () => { alive = false; root.removeEventListener('click', onClick); if (typeof formCleanup === 'function') formCleanup(); };
     },
   };
 }

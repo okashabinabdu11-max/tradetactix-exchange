@@ -205,6 +205,12 @@ export async function getAccessToken() {
   return data?.session?.access_token ?? null;
 }
 
+/** Win rate of the signals the bot sent: totals for the last 7 and 30 days. Readable by anyone. */
+export async function getSignalStats() {
+  const res = await call('signal_stats', {});
+  return res.ok ? { ok: true, data: res.data || [] } : { ok: false };
+}
+
 async function call(name, args) {
   if (!client) return { ok: false, message: NOT_CONFIGURED };
   const { data, error } = await client.rpc(name, args);

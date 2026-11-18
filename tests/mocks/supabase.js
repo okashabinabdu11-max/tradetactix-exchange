@@ -89,6 +89,10 @@ export function createClient(url, key) {
   const fail = (message) => ({ data: null, error: { message } });
   const rpcs = {
     my_entitlement: () => ({ data: entitlement(), error: null }),
+    signal_stats: () => opts.get('stats') === 'missing' ? { data: null, error: { code: 'PGRST202', message: 'Could not find the function public.signal_stats' } }
+      : { data: opts.get('stats') === 'some'
+        ? [{ period: 'week', wins: 3, losses: 1, breakeven: 1, pips: 690 }, { period: 'month', wins: 7, losses: 3, breakeven: 2, pips: 1520.5 }]
+        : [{ period: 'week', wins: 0, losses: 0, breakeven: 0, pips: 0 }, { period: 'month', wins: 0, losses: 0, breakeven: 0, pips: 0 }], error: null },
     start_payment: ({ p_network }) => {
       const net = tables.payment_networks.find((n) => n.id === p_network && n.enabled);
       if (!net) return fail('This payment network is not open.');

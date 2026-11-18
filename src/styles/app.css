@@ -713,7 +713,7 @@ body.is-home .main { padding-bottom: 32px; }
   body.is-home #app { grid-template-columns: 1fr; }
   .home { grid-template-columns: 1.15fr 1fr; column-gap: 56px; row-gap: 40px; align-items: start; padding-top: 24px; }
   .home-hero { grid-column: 1; }
-  .home-auth { grid-column: 2; grid-row: 1 / span 2; }
+  .home-auth { grid-column: 2; grid-row: 1 / span 3; }
   .home-points { grid-column: 1 / -1; grid-template-columns: repeat(3, 1fr); }
   .home-join, .home-foot { grid-column: 1 / -1; }
   .home-join ol { grid-template-columns: repeat(3, 1fr); gap: 24px; }
@@ -782,3 +782,21 @@ body.is-home .main { padding-bottom: 32px; }
 .support + .panel { margin-top: 16px; }
 .tg-button { gap: 8px; }
 .msg p a { color: inherit; text-decoration: underline; font-weight: 600; }
+
+/* ---------- Homepage: results and channel ---------- */
+.home-stats { display: grid; gap: 12px; }
+.home-stats h2, .home-channel h2 { font-size: 20px; font-weight: 700; }
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.stat-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 16px; display: grid; gap: 4px; align-content: start; }
+.stat-card h3 { font-size: 14px; font-weight: 600; color: var(--muted); }
+.stat-rate { font-family: var(--font-display); font-weight: 800; font-size: 44px; line-height: 1; }
+.stat-rate span { display: block; font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--muted); margin-top: 4px; }
+.stat-rate.is-empty { color: var(--dim); }
+.stat-line { font-size: 14.5px; font-weight: 600; color: var(--muted); }
+.home-note { font-size: 13px; color: var(--muted); }
+.home-channel { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 18px; }
+.home-channel p { color: var(--muted); font-size: 15px; margin-top: 4px; }
+@media (min-width: 960px) {
+  .home-stats { grid-column: 1; }
+  .home-channel { grid-column: 1; }
+}
