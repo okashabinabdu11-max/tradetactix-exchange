@@ -62,7 +62,7 @@ export function alertMessage(signal) {
     `Take-profit: <b>${p2(signal.target)}</b>`,
     `Reward-to-risk: <b>1:${(Math.floor(signal.rr * 10) / 10).toFixed(1)}</b>`,
     '',
-    `At 0.01 lot (1 oz): risk <b>$${p2(Math.abs(signal.entry - signal.stop))}</b>, reward <b>$${p2(Math.abs(signal.target - signal.entry))}</b>.`,
+    `Risk: <b>${Math.round(Math.abs(signal.entry - signal.stop) * 10)} pips</b> · Reward: <b>${Math.round(Math.abs(signal.target - signal.entry) * 10)} pips</b>`,
     '',
     `4H ${role} ${p2(signal.level?.price)} · 1H liquidity swept · 15M close confirmed at ${when} UTC.`,
     'If price has already moved away from the entry, this signal is no longer valid.',

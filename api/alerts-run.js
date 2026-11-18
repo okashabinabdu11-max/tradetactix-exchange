@@ -2,12 +2,14 @@
 //   1. A new BUY or SELL is sent once to every member with access.
 //   2. Every open signal is followed: "Put BE", "TP Done", "SL hit",
 //      "Closed at breakeven" or "no result after 48 hours", each sent once.
+//   3. Before high-impact US news: an expectation for gold, sent once in the hour before.
 // Members whose access has ended receive nothing.
 
 import { originOf, readMarket } from './_lib/engine.js';
 import { signalKey } from './_lib/gate.js';
 import { sameSecret, telegram, serverRpc, alertMessage } from './_lib/telegram.js';
 import { nextEvent, eventMessage } from './_lib/tracker.js';
+import { runNews } from './_lib/newsRun.js';
 
 const send = (res, status, body) => {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -43,7 +45,9 @@ export default async function handler(req, res) {
   try {
     market = await readMarket(origin);
   } catch (err) {
-    return send(res, 200, { state: 'offline', reason: err?.code || 'unavailable' });
+    // Price data unavailable (for example the weekend): still look after the news.
+    const news = await runNews({ origin, broadcast }).catch((e) => ({ error: String(e?.message || e).slice(0, 120) }));
+    return send(res, 200, { state: 'offline', reason: err?.code || 'unavailable', news });
   }
   const { signal, m15 } = market;
   const out = { state: signal.state, sent: 0, updates: [] };
@@ -77,9 +81,11 @@ export default async function handler(req, res) {
         out.updates.push({ key: trade.signal_key, event: ev.event, pips: ev.pips, sent: n });
       }
     }
-    return send(res, 200, out);
   } catch (err) {
     console.error('alerts run failed', err?.message);
-    return send(res, 502, { error: 'alerts_failed' });
+    out.error = 'alerts_failed';
   }
+  // 3. News (independent of the signal steps above)
+  out.news = await runNews({ origin, broadcast }).catch((e) => ({ error: String(e?.message || e).slice(0, 120) }));
+  return send(res, out.error ? 502 : 200, out);
 }

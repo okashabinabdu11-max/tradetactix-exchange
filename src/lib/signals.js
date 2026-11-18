@@ -153,7 +153,7 @@ function evaluateDirection(dir, { level, levels, liquidity, window, atr4, atr15,
   result.passed = 3;
   Object.assign(result, { entry, stop, risk, confirmedAt: window[confirmIdx].t });
   if (risk > params.maxStopUsd + 1e-9) {
-    return { ...result, tooWide: true, note: `A setup confirmed, but its stop-loss would be ${risk.toFixed(2)} away, more than the ${params.maxStopUsd.toFixed(2)} maximum. Skipped.` };
+    return { ...result, tooWide: true, note: 'A setup confirmed, but its stop-loss would be too wide, so it was skipped.' };
   }
 
   // Target: the next 4H level in the trade direction, if it is at least 1:minRR away.

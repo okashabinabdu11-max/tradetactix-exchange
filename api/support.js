@@ -5,7 +5,8 @@
 
 import { bearerToken, accountEmail } from './_lib/access.js';
 import { telegram, serverRpc } from './_lib/telegram.js';
-import { MODELS, SYSTEM_PROMPT, AI_PER_HOUR, HUMAN_PER_HOUR, MAX_CHARS, sanitizeMessages, makeLimiter, adminNotice } from './_lib/support.js';
+import { aiProviders, askAI } from './_lib/ai.js';
+import { SYSTEM_PROMPT, AI_PER_HOUR, HUMAN_PER_HOUR, MAX_CHARS, sanitizeMessages, makeLimiter, adminNotice } from './_lib/support.js';
 
 const aiLimit = makeLimiter(AI_PER_HOUR);
 const humanLimit = makeLimiter(HUMAN_PER_HOUR);
@@ -26,17 +27,6 @@ async function aiReady(req) {
     const c = r.ok ? await r.json() : null;
     return Number(c?.balance) > 0;
   } catch { return false; }
-}
-// Google Gemini (free key from aistudio.google.com, no card) first when GEMINI_API_KEY is set,
-// then Vercel AI Gateway. Both speak the same OpenAI-style chat format.
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
-const GEMINI_MODELS = [process.env.GEMINI_MODEL, 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest'].filter(Boolean);
-function aiProviders(req) {
-  const list = [];
-  if (process.env.GEMINI_API_KEY) for (const model of GEMINI_MODELS) list.push({ url: GEMINI_URL, key: process.env.GEMINI_API_KEY, model });
-  const token = gatewayToken(req);
-  if (token) for (const model of MODELS) list.push({ url: 'https://ai-gateway.vercel.sh/v1/chat/completions', key: token, model });
-  return list;
 }
 const ipOf = (req) => String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
 
@@ -73,30 +63,10 @@ export default async function handler(req, res) {
   if (!messages.length) return send(res, 400, { error: 'empty' });
   if (!aiLimit(ip)) return send(res, 429, { error: 'rate_limited' });
 
-  const providers = aiProviders(req);
-  if (!providers.length) return send(res, 503, { error: 'ai_unavailable' });
+  if (!aiProviders(gatewayToken(req)).length) return send(res, 503, { error: 'ai_unavailable' });
   try {
-    // Try each model until one answers. A model the account cannot use (not in the
-    // free tier, unknown name) answers 400/403/404; move on to the next one.
-    for (const { url, key, model } of providers) {
-      const r = await fetch(url, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-        // Gemini models think before answering and that counts toward max_tokens: keep thinking low and leave room.
-        body: JSON.stringify({ model, temperature: 0.3, ...(url === GEMINI_URL ? { max_tokens: 1500, reasoning_effort: 'low' } : { max_tokens: 450 }), messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...messages] }),
-        signal: AbortSignal.timeout(25000),
-      });
-      const data = await r.json().catch(() => null);
-      const reply = data?.choices?.[0]?.message?.content;
-      if (r.ok && typeof reply === 'string' && reply.trim()) return send(res, 200, { reply: reply.trim().slice(0, 4000) });
-      const why = String(data?.error?.message || data?.[0]?.error?.message || data?.error || '');
-      console.error('support ai failed', model, r.status, why.slice(0, 300));
-      // 400/403/404/429: this model is not usable right now, try the next one.
-      // Vercel's "credit card on file" refusal covers all its models, and they come last: stop.
-      if (/credit card/i.test(why)) break;
-      if (![400, 403, 404, 429].includes(r.status)) break;
-    }
-    return send(res, 503, { error: 'ai_unavailable' });
+    const reply = await askAI({ system: SYSTEM_PROMPT, messages, gatewayToken: gatewayToken(req) });
+    return reply ? send(res, 200, { reply: reply.slice(0, 4000) }) : send(res, 503, { error: 'ai_unavailable' });
   } catch (err) {
     console.error('support ai error', err?.message);
     return send(res, 503, { error: 'ai_unavailable' });

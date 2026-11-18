@@ -170,7 +170,7 @@ test('a setup whose stop would be wider than the maximum is not a signal', () =>
   const wide = m15With(longTail, (k) => (k === 4 ? { l: 3997 } : k === 6 ? { o: 4003, c: 4008, l: 3985 } : null));
   const r = evaluate({ h4: H4, h1: H1, m15: wide, now: NOW });
   assert.equal(r.state, 'no-setup');
-  assert.match(r.reason, /more than the 9.00 maximum/);
+  assert.match(r.reason, /stop-loss would be too wide/); assert.doesNotMatch(r.reason, /9/);
   assert.equal(r.entry, undefined);
   // A larger maximum lets the same setup through.
   const loose = evaluate({ h4: H4, h1: H1, m15: wide, now: NOW, params: { ...PARAMS, maxStopUsd: 30 } });

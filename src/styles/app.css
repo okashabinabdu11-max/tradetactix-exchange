@@ -189,7 +189,7 @@ a { color: inherit; text-decoration: none; }
 }
 .rung-body h3 { font-size: 16.5px; font-weight: 600; }
 .rung-body p { color: var(--muted); font-size: 14.5px; margin-top: 2px; }
-.rung-status { grid-column: 2; font-size: 13px; font-weight: 600; color: var(--faint); }
+.rung-status { grid-column: 2; font-size: 13px; font-weight: 600; color: var(--t-green); }
 
 .states { border-top: 1px solid var(--line); padding: 0 18px; }
 .states summary { cursor: pointer; padding: 14px 0; font-weight: 600; font-size: 14.5px; color: var(--muted); }
@@ -523,8 +523,8 @@ a { color: inherit; text-decoration: none; }
 
 /* ---------- Stage 5: signals ---------- */
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.rung.is-ok .rung-status { color: var(--buy); }
-.rung.is-fail .rung-status { color: var(--gold); }
+.rung.is-ok .rung-status { color: var(--t-green); }
+.rung.is-fail .rung-status { color: var(--t-green); }
 .rung.is-ok .rung-tf { background: rgba(53, 196, 145, 0.14); color: var(--buy); border-color: rgba(53, 196, 145, 0.45); }
 .signal-levels { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 12px; margin: 16px 0 10px; }
 .signal-levels dt { font-size: 13px; color: var(--muted); }
@@ -827,3 +827,24 @@ body.is-home .main { padding-bottom: 32px; }
 .wr-win { background: var(--buy); } .wr-loss { background: var(--sell); } .wr-flat { background: var(--dim); }
 .wr-sub { font-size: 12.5px; color: var(--muted); }
 @media (max-width: 420px) { .wr-grid { gap: 6px; } .wr-card { padding: 10px 8px; } .wr-rate { font-size: 28px; } }
+
+/* ---------- News outlook ---------- */
+.outlook-list { display: grid; gap: 12px; }
+.outlook { display: grid; gap: 4px; padding: 14px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--base); }
+.outlook h3 { font-size: 17px; font-weight: 700; }
+.outlook-when, .outlook-nums { font-size: 13px; color: var(--muted); font-weight: 600; }
+.outlook-bias { font-weight: 800; font-size: 16px; }
+.outlook-bias span { font-weight: 600; font-size: 13px; color: var(--muted); }
+.outlook p { font-size: 14.5px; }
+.outlook-case { color: var(--muted); }
+
+/* ---------- Journal: quick close ---------- */
+.close-quick { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; }
+.close-quick .button { margin-top: 0; min-height: 40px; }
+.close-quick .close-tp { color: var(--t-green); border-color: var(--t-green); }
+.close-quick .close-sl { color: var(--t-red); border-color: var(--t-red); }
+.close-quick .close-be { color: var(--t-blue); border-color: var(--t-blue); }
+.field-hint.is-error { color: var(--sell); }
+.badge-tp { color: var(--t-green); border-color: var(--t-green); }
+.badge-sl { color: var(--t-red); border-color: var(--t-red); }
+.badge-be { color: var(--t-blue); border-color: var(--t-blue); }

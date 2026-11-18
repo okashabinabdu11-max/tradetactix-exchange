@@ -39,7 +39,7 @@ function tradeBlock(signal) {
         <div><dt>Take-profit</dt><dd>${price(signal.target)}</dd></div>
         <div><dt>Reward-to-risk</dt><dd>${ratio(Math.floor(signal.rr * 10) / 10)}</dd></div>
       </dl>
-      <p class="signal-basis"><strong>At 0.01 lot (1 oz): risk $${price(Math.abs(signal.entry - signal.stop))}, reward $${price(Math.abs(signal.target - signal.entry))}.</strong> Entry is the close of the confirming 15M candle at ${time(signal.confirmedAt)}. Target: ${escapeHtml(signal.targetBasis || '')}. If price has already moved away from the entry, the signal is no longer valid.</p>
+      <p class="signal-basis"><strong>Risk ${Math.round(Math.abs(signal.entry - signal.stop) * 10)} pips, reward ${Math.round(Math.abs(signal.target - signal.entry) * 10)} pips.</strong> Entry is the close of the confirming 15M candle at ${time(signal.confirmedAt)}. Target: ${escapeHtml(signal.targetBasis || '')}. If price has already moved away from the entry, the signal is no longer valid.</p>
       <a class="button button-primary" href="#/risk">Size this trade</a>`;
   }
   if (isTrade) {

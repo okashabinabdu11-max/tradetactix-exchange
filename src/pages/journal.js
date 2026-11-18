@@ -166,7 +166,13 @@ function formMarkup(trade) {
       </fieldset>
       <fieldset class="closing">
         <legend class="field-label">Closing the trade</legend>
-        <p class="field-hint">Leave these empty while the trade is still open.</p>
+        <p class="field-hint">Leave these empty while the trade is still open. Or tap how it ended:</p>
+        <div class="close-quick" role="group" aria-label="How the trade ended">
+          <button class="button button-quiet close-tp" type="button" data-action="close-tp">TP hit</button>
+          <button class="button button-quiet close-sl" type="button" data-action="close-sl">SL hit</button>
+          <button class="button button-quiet close-be" type="button" data-action="close-be">Breakeven</button>
+        </div>
+        <p class="field-hint" id="close-quick-status" role="status"></p>
         <div class="field-row field-row-3">
           ${timeField('closedAt', 'Closed', t.closedAt)}
           ${numField('exitPrice', 'Exit price', t.exitPrice, '', 'min="0"')}
@@ -183,6 +189,16 @@ function formMarkup(trade) {
         <span id="trade-status" class="form-status" role="status"></span>
       </div>
     </form>`;
+}
+
+// How a closed trade ended, when its exit matches the take-profit, stop-loss or entry.
+function outcomeBadge(t) {
+  if (t.exitPrice == null || !t.closedAt) return '';
+  const same = (a, b) => a != null && Math.abs(Number(a) - Number(b)) < 1e-6;
+  if (same(t.takeProfit, t.exitPrice)) return '<span class="badge badge-tp">TP hit</span>';
+  if (same(t.stopLoss, t.exitPrice)) return '<span class="badge badge-sl">SL hit</span>';
+  if (same(t.entryPrice, t.exitPrice)) return '<span class="badge badge-be">Breakeven</span>';
+  return '';
 }
 
 function tradeMarkup(t, minRR, confirmingDelete) {
@@ -207,7 +223,7 @@ function tradeMarkup(t, minRR, confirmingDelete) {
         ${result}
       </div>
       <p class="trade-facts">${facts.map((f) => `<span>${f}</span>`).join('')}</p>
-      <div class="trade-badges">${planBadge}${t.confirm5m ? '<span class="badge">5M confirmed</span>' : ''}</div>
+      <div class="trade-badges">${outcomeBadge(t)}${planBadge}${t.confirm5m ? '<span class="badge">5M confirmed</span>' : ''}</div>
       ${t.notes ? `<p class="trade-notes">${escapeHtml(t.notes)}</p>` : ''}
       <div class="trade-actions">
         <button class="link-button" type="button" data-action="edit" data-id="${escapeHtml(t.id)}">${m.closed ? 'Edit' : 'Edit or close'}</button>
@@ -289,6 +305,19 @@ export function journalPage() {
         const el = e.target.closest('[data-action]');
         if (!el) return;
         const { action, id } = el.dataset;
+        if (action === 'close-tp' || action === 'close-sl' || action === 'close-be') {
+          // Fills the exit price from the take-profit, stop-loss or entry, and the closing time if empty.
+          const f = root.querySelector('#trade-form');
+          const from = { 'close-tp': ['#t-takeProfit', 'take-profit'], 'close-sl': ['#t-stopLoss', 'stop-loss'], 'close-be': ['#t-entryPrice', 'entry price'] }[action];
+          const value = f.querySelector(from[0]).value;
+          const note = f.querySelector('#close-quick-status');
+          if (!value) { note.textContent = `Enter the ${from[1]} first.`; note.className = 'field-hint is-error'; return; }
+          f.querySelector('#t-exitPrice').value = value;
+          const closed = f.querySelector('#t-closedAt');
+          if (!closed.value) { const d = new Date(); d.setSeconds(0, 0); closed.value = new Date(d.getTime() - d.getTimezoneOffset() * 60e3).toISOString().slice(0, 16); }
+          note.textContent = `Exit price set to ${value}. Check the closing time, then save.`; note.className = 'field-hint';
+          return;
+        }
         if (action === 'prev-month' || action === 'next-month') {
           const d = new Date(ui.view.year, ui.view.month + (action === 'next-month' ? 1 : -1), 1);
           ui.view = { year: d.getFullYear(), month: d.getMonth() };

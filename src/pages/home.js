@@ -104,7 +104,7 @@ export function homePage() {
         </section>
 
         <section class="home-points">
-          <div><h3>Full trade plan</h3><p>Every signal has entry, stop-loss and take-profit, aims for at least 1:3, and risks under $9 at 0.01 lot.</p></div>
+          <div><h3>Full trade plan</h3><p>Every signal has entry, stop-loss and take-profit, aims for at least 1:3, and keeps the stop-loss tight.</p></div>
           <div><h3>Updates while it runs</h3><p>Telegram tells you when to put your stop at breakeven, and when the trade hits TP or SL, with the pips.</p></div>
           <div><h3>Members only</h3><p>Access is approved by the admin for a set time and stops by itself when it ends.</p></div>
         </section>
