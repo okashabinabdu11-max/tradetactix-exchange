@@ -28,7 +28,7 @@ async function goldContext(origin) {
   } catch { return {}; }
 }
 
-export async function runNews({ origin, broadcast, now = Date.now(), maxAnalyses = 2 }) {
+export async function runNews({ origin, broadcast, now = Date.now(), maxAnalyses = 1 }) {
   const out = { analyzed: [], sent: [] };
 
   // 1. Outlooks for the next 24 hours
@@ -42,8 +42,11 @@ export async function runNews({ origin, broadcast, now = Date.now(), maxAnalyses
       const todo = soon.filter((e) => missing.has(e.key)).slice(0, maxAnalyses);
       const ctx = todo.length ? await goldContext(origin) : {};
       for (const e of todo) {
-        const text = await askAI({ system: NEWS_SYSTEM, messages: [{ role: 'user', content: newsPrompt(e, ctx) }], maxTokens: 400, timeoutMs: 15000 }).catch(() => null);
-        const x = parseExpectation(text) || ruleExpectation(e);
+        let text = null; let aiError = null;
+        try { text = await askAI({ system: NEWS_SYSTEM, messages: [{ role: 'user', content: newsPrompt(e, ctx) }], maxTokens: 500, timeoutMs: 25000 }); } catch (err) { aiError = err?.name === 'TimeoutError' ? 'timeout' : String(err?.message || err); }
+        const fromAi = parseExpectation(text);
+        if (!fromAi) console.error('news ai unusable', e.title, aiError || (text ? `not JSON: ${text.slice(0, 200)}` : 'no reply'));
+        const x = fromAi || ruleExpectation(e);
         const sc = scenarios(e.title);
         await serverRpc('alerts_news_save', {
           p_key: e.key, p_title: e.title, p_starts_at: e.startsAt, p_forecast: e.forecast, p_previous: e.previous,
