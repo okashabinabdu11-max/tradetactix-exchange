@@ -1,6 +1,7 @@
 // POST /api/access-notify — Telegram notices for access requests.
 //   { kind: 'request',  requestId }  sent by the requester: tells administrators
 //   { kind: 'approved', requestId }  sent by an administrator: tells the member
+//   { kind: 'payment',  requestId }  sent by the payer (requestId = the payment claim): tells administrators
 // The caller's own sign-in decides what they may trigger; the database checks it.
 
 import { bearerToken, getEntitlement } from './_lib/access.js';
@@ -24,10 +25,32 @@ export default async function handler(req, res) {
   let body = req.body;
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = null; } }
   const id = String(body?.requestId || '');
-  if (!/^[0-9a-f-]{36}$/i.test(id) || !['request', 'approved'].includes(body?.kind)) return send(res, 400, { error: 'bad_request' });
+  if (!/^[0-9a-f-]{36}$/i.test(id) || !['request', 'approved', 'payment'].includes(body?.kind)) return send(res, 400, { error: 'bad_request' });
   if (body.kind === 'approved' && !who.is_admin) return send(res, 403, { error: 'admins_only' });
 
   try {
+    if (body.kind === 'payment') {
+      // Read the claim with the payer's own sign-in, so only its owner can trigger this.
+      const headers = { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` };
+      const [claim] = await fetch(`${SUPABASE_URL}/rest/v1/payment_claims?id=eq.${id}&select=id,status,amount_usdt,network,tx_hash,user_id`, { headers, signal: AbortSignal.timeout(6000) }).then((r) => r.json());
+      if (!claim || claim.status !== 'pending') return send(res, 404, { error: 'not_found' });
+      const me = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers, signal: AbortSignal.timeout(6000) }).then((r) => r.json()).catch(() => ({}));
+      const [net] = await fetch(`${SUPABASE_URL}/rest/v1/payment_networks?id=eq.${claim.network}&select=explorer_tx_url,label`, { headers, signal: AbortSignal.timeout(6000) }).then((r) => r.json()).catch(() => []);
+      const link = net?.explorer_tx_url ? `${net.explorer_tx_url}${claim.tx_hash}` : claim.tx_hash;
+      const text = `💳 New Pro payment to review
+
+Email: ${me?.email || 'member'}
+Amount: ${Number(claim.amount_usdt).toFixed(2)} USDT
+Network: ${net?.label || claim.network}
+Transaction: ${link}
+
+Check and approve it in Admin: ${SITE_URL}/#/admin`;
+      let sent = 0;
+      for (const a of (await serverRpc('alerts_admin_chats', {})) || []) {
+        await telegram('sendMessage', { chat_id: a.chat_id, text, disable_web_page_preview: true }).then(() => { sent += 1; }).catch(() => {});
+      }
+      return send(res, 200, { sent });
+    }
     // The caller must be able to see the request: its owner, or an administrator.
     const seen = await fetch(`${SUPABASE_URL}/rest/v1/access_requests?id=eq.${id}&select=id,status`, {
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(6000),

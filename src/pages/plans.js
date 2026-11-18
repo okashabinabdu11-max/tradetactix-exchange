@@ -19,8 +19,8 @@ function compare(price, credits, hours) {
   return `
     <div class="plan-grid">
       <section class="panel plan-card"><h2>Free</h2><p class="plan-price">Open to all</p>${list(FREE)}</section>
-      <section class="panel plan-card is-pro"><h2>Pro</h2><p class="plan-price">By approval</p>${list(PRO)}
-        <p class="panel-note">Access is given by the admin for a set time and ends automatically. When no setup meets the plan, it shows “Wait — the market setup is analyzing” until one does. Signals are never made up.</p></section>
+      <section class="panel plan-card is-pro"><h2>Pro</h2><p class="plan-price">${money(price)} USDT · ${days} days</p>${list(PRO)}
+        <p class="panel-note">Pay with USDT and wait for the admin's approval, or request access. It ends automatically. When no setup meets the plan, it shows “Wait — the market setup is analyzing” until one does. Signals are never made up.</p></section>
     </div>`;
 }
 
@@ -83,7 +83,7 @@ function alertsPanel(settings, entitlement, link, code) {
     </section>`;
 }
 
-const STATUS = { awaiting: 'Waiting for your payment', pending: 'Paid, being checked', approved: 'Approved, credits added', rejected: 'Rejected', expired: 'Expired' };
+const STATUS = { awaiting: 'Waiting for your payment', pending: 'Waiting for approval', approved: 'Approved, Pro added', rejected: 'Rejected', expired: 'Expired' };
 
 function claimsList(claims) {
   const shown = claims.filter((c) => c.status !== 'awaiting');
@@ -93,31 +93,64 @@ function claimsList(claims) {
   </ul></section>`;
 }
 
-function payPanel(networks, open) {
-  if (!networks.length) {
-    return `<section class="panel pay"><h2 class="panel-title">Pay with USDT</h2>
-      <p class="result-empty">Crypto payments are in test mode. No network is open yet: each one is switched on only after a real test payment passes the automatic check.</p></section>`;
+const NET_NAME = { bep20: 'USDT · BEP20 (BNB Chain)', trc20: 'USDT · TRC20 (TRON)', plasma: 'USDT · Plasma', aptos: 'USDT · Aptos' };
+const shortHash = (h) => (h && h.length > 20 ? `${h.slice(0, 10)}…${h.slice(-8)}` : h || '');
+
+// Get Pro: button → payment methods → exact amount and address → (after copying) hash → waiting for approval.
+function proPanel({ settings, networks, open, claims, ui }) {
+  const days = Math.round((settings.credits_per_purchase * settings.hours_per_credit) / 24);
+  const price = money(settings.pro_price_usdt);
+  const pending = claims.find((c) => c.status === 'pending');
+  if (pending) {
+    return `
+      <section class="panel pay pay-wait" id="pro-panel">
+        <h2 class="panel-title">Waiting for approval</h2>
+        <p class="pay-amount"><span>${escapeHtml(NET_NAME[pending.network] || pending.network)}</span><strong>${money(pending.amount_usdt)} USDT</strong></p>
+        <p class="panel-note">Transaction <code>${escapeHtml(shortHash(pending.tx_hash))}</code>, sent ${dateTime(pending.submitted_at)}.</p>
+        <p>The admin checks your payment on the blockchain, then approves it. Pro starts as soon as it is approved, and you get a Telegram message if your Telegram is connected.</p>
+        <p class="panel-note">Question about your payment? Message <a class="inline-link" href="https://t.me/Tradetactix1" target="_blank" rel="noopener">@Tradetactix1</a>.</p>
+      </section>`;
   }
-  const options = networks.map((n) => `<option value="${n.id}" ${open?.network === n.id ? 'selected' : ''}>${escapeHtml(n.label)}</option>`).join('');
+  if (!ui.showPay) {
+    return `
+      <section class="panel pay pro-offer" id="pro-panel">
+        <h2 class="panel-title">Get Pro</h2>
+        <p class="pay-amount"><span>${days} days of full signals</span><strong>${price} USDT</strong></p>
+        <p class="panel-note">Pay with USDT. After the admin approves your payment, signals and Telegram alerts start, and stop automatically after ${days} days.</p>
+        <div class="form-actions"><button class="button button-primary" type="button" data-pay="start">Get Pro</button></div>
+      </section>`;
+  }
+  if (!networks.length) {
+    return `
+      <section class="panel pay" id="pro-panel">
+        <h2 class="panel-title">Get Pro</h2>
+        <p class="result-empty">Payments are not open right now. Message <a class="inline-link" href="https://t.me/Tradetactix1" target="_blank" rel="noopener">@Tradetactix1</a> on Telegram to get Pro.</p>
+      </section>`;
+  }
+  const methods = networks.map((n) => `<button class="pay-method ${open?.network === n.id ? 'is-on' : ''}" type="button" data-net="${n.id}" aria-pressed="${open?.network === n.id}">${escapeHtml(NET_NAME[n.id] || n.label)}</button>`).join('');
   const net = open ? networks.find((n) => n.id === open.network) : null;
   return `
-    <section class="panel pay">
-      <h2 class="panel-title">Pay with USDT</h2>
-      <label class="field"><span class="field-label">Network</span><select id="pay-network"><option value="">Choose a network</option>${options}</select></label>
+    <section class="panel pay" id="pro-panel">
+      <h2 class="panel-title">Get Pro · ${price} USDT for ${days} days</h2>
+      <p class="field-label">1. Choose how to pay</p>
+      <div class="pay-methods">${methods}</div>
       ${open && net ? `
         <div class="pay-box">
-          <p class="pay-amount"><span>Send exactly</span><strong id="pay-amount">${money(open.amount_usdt)} USDT</strong></p>
-          <p class="pay-warn">The extra cents identify your payment. Send this exact amount on <strong>${escapeHtml(net.label)}</strong> only. If your exchange takes its fee out of the amount sent, the payment will not match. USDT sent on another network cannot be recovered.</p>
+          <p class="field-label">2. Send exactly this amount</p>
+          <p class="pay-amount"><span>${escapeHtml(NET_NAME[net.id] || net.label)}</span><strong id="pay-amount">${money(open.amount_usdt)} USDT</strong></p>
+          <p class="pay-warn">The extra cents identify your payment, so send <strong>exactly ${money(open.amount_usdt)} USDT</strong>, and only on <strong>${escapeHtml(net.label)}</strong>. If your exchange takes its fee from the amount, add the fee so the full amount arrives. USDT sent on another network cannot be recovered.</p>
           <div class="field"><span class="field-label">To this address</span>
-            <div class="copy-row"><code id="pay-address">${escapeHtml(open.receiving_address)}</code><button class="button button-quiet" type="button" data-copy="${escapeHtml(open.receiving_address)}">Copy address</button></div>
+            <div class="copy-row"><code id="pay-address">${escapeHtml(open.receiving_address)}</code><button class="button ${ui.copied ? 'button-quiet' : 'button-primary'}" type="button" data-copy="${escapeHtml(open.receiving_address)}">${ui.copied ? 'Copied' : 'Copy address'}</button></div>
           </div>
+          ${ui.copied ? `
           <form id="hash-form" class="hash-form" novalidate>
-            <label class="field" for="tx-hash"><span class="field-label">Transaction hash</span>
+            <p class="field-label">3. After sending, paste the transaction hash</p>
+            <label class="field" for="tx-hash"><span class="sr-only">Transaction hash</span>
               <input id="tx-hash" name="tx" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="${open.network === 'trc20' ? '64 letters and numbers' : '0x followed by 64 letters and numbers'}" />
-              <span class="field-hint">Copy it from your wallet or exchange after sending. A screenshot is not accepted as proof.</span></label>
-            <button class="button button-primary" type="submit">Submit payment</button>
-          </form>
-          <p class="panel-note">Open until ${dateTime(open.expires_at)}. Credits are added after the payment is confirmed on chain and approved.</p>
+              <span class="field-hint">Find it in your wallet or exchange, in the details of this withdrawal (also called TxID). A screenshot is not accepted.</span></label>
+            <button class="button button-primary" type="submit">I've paid</button>
+          </form>` : '<button class="link-button" type="button" data-pay="show-hash">I already sent it</button>'}
+          <p class="panel-note">This payment stays open until ${dateTime(open.expires_at)}.</p>
         </div>` : ''}
       <p id="pay-status" class="form-status" role="status"></p>
     </section>`;
@@ -125,7 +158,7 @@ function payPanel(networks, open) {
 
 export function plansPage() {
   const { ready, user, entitlement } = session.get();
-  const head = '<header class="page-head"><h1>Plans</h1><p>Signals are for approved members. Request access below.</p></header>';
+  const head = '<header class="page-head"><h1>Plans</h1><p>Get Pro with USDT, or request access. Signals start after the admin approves.</p></header>';
   return {
     title: 'Plans',
     html: `${head}<div id="plans-view"><p class="result-empty">Loading plans…</p></div>`,
@@ -139,6 +172,7 @@ export function plansPage() {
       let telegramLink = null;
       let telegramCode = null;
       let accessRequest = null;
+      const ui = { showPay: false, copied: false };
 
       const draw = () => {
         if (!alive) return;
@@ -147,8 +181,12 @@ export function plansPage() {
         let body = compare(price, credits, hours);
         if (!user) body = `${body}<section class="panel"><p class="result-empty">Open your account to request signal access.</p><a class="button button-quiet" href="#/home">Open Account</a></section>`;
         else if (entitlement?.unlimited) body = statusPanel(entitlement) + alertsPanel(settings, entitlement, telegramLink, telegramCode) + body;
-        // Access is by approval only: payments are not offered on this page.
-        else body = statusPanel(entitlement) + (entitlement?.plan === 'pro' ? '' : accessPanel(accessRequest, user.email)) + alertsPanel(settings, entitlement, telegramLink, telegramCode) + body;
+        else {
+          const isPro = entitlement?.plan === 'pro';
+          // Members can extend Pro too; a payment adds days after the current end.
+          body = statusPanel(entitlement) + proPanel({ settings, networks, open, claims, ui })
+            + (isPro ? '' : accessPanel(accessRequest, user.email)) + alertsPanel(settings, entitlement, telegramLink, telegramCode) + claimsList(claims) + body;
+        }
         box.innerHTML = body;
       };
 
@@ -163,16 +201,15 @@ export function plansPage() {
           networks = n.ok ? n.data : [];
           claims = c.ok ? c.data : [];
           open = claims.find((x) => x.status === 'awaiting' && new Date(x.expires_at) > new Date()) || null;
+          if (open) ui.showPay = true; // continue a payment that was started earlier
         }
         draw();
       };
 
       const status = (text, tone = '') => { const el = root.querySelector('#pay-status'); if (el) { el.textContent = text; el.className = `form-status ${tone}`; } };
 
-      box.addEventListener('change', async (e) => {
-        if (e.target.id !== 'pay-network') return;
-        const id = e.target.value;
-        if (!id) { open = null; draw(); return; }
+      const chooseNetwork = async (id) => {
+        ui.copied = false;
         const existing = claims.find((x) => x.status === 'awaiting' && x.network === id && new Date(x.expires_at) > new Date());
         if (existing) { open = existing; draw(); return; }
         status('Preparing your payment…');
@@ -181,9 +218,17 @@ export function plansPage() {
         open = res.data;
         claims = [res.data, ...claims.filter((x) => x.id !== res.data.id)];
         draw();
-      });
+      };
 
       box.addEventListener('click', async (e) => {
+        const pay = e.target.closest('[data-pay]');
+        if (pay) {
+          if (pay.dataset.pay === 'start') { ui.showPay = true; draw(); root.querySelector('#pro-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+          if (pay.dataset.pay === 'show-hash') { ui.copied = true; draw(); root.querySelector('#tx-hash')?.focus(); }
+          return;
+        }
+        const netBtn = e.target.closest('[data-net]');
+        if (netBtn) { await chooseNetwork(netBtn.dataset.net); return; }
         const tg = e.target.closest('[data-telegram]');
         if (tg) {
           tg.disabled = true;
@@ -199,9 +244,11 @@ export function plansPage() {
         }
         const btn = e.target.closest('[data-copy]');
         if (!btn) return;
-        try { await navigator.clipboard.writeText(btn.dataset.copy); btn.textContent = 'Copied'; }
-        catch { btn.textContent = 'Copy it by hand'; }
-        setTimeout(() => { btn.textContent = 'Copy address'; }, 2500);
+        let copied = true;
+        try { await navigator.clipboard.writeText(btn.dataset.copy); } catch { copied = false; }
+        // After copying, the next step (paste the hash) opens by itself.
+        ui.copied = true; draw();
+        status(copied ? 'Address copied. Send the exact amount, then paste the transaction hash here.' : 'Copy the address by hand, send the exact amount, then paste the transaction hash here.', copied ? 'is-ok' : '');
       });
 
       box.addEventListener('submit', async (e) => {
@@ -231,10 +278,10 @@ export function plansPage() {
         button.disabled = false;
         if (!res.ok) { status(res.message, 'is-error'); return; }
         claims = [res.data, ...claims.filter((x) => x.id !== res.data.id)];
-        open = null;
-        draw();
-        status('Payment submitted. Credits are added once it is confirmed on chain and approved.', 'is-ok');
-        refreshEntitlement();
+        open = null; ui.showPay = false; ui.copied = false;
+        draw(); // shows "Waiting for approval"
+        notifyAccess('payment', res.data.id);
+        root.querySelector('#pro-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
 
       load();
