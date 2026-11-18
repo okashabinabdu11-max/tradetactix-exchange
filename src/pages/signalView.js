@@ -50,12 +50,12 @@ function tradeBlock(signal) {
         <div><dt>Entry</dt><dd class="is-locked">Pro</dd></div>
         <div><dt>Stop and target</dt><dd class="is-locked">Pro</dd></div>
       </dl>
-      <a class="button button-primary" href="#/plans">See Pro</a>`;
+      <a class="button button-primary" href="#/plans">Request access</a>`;
   }
   if (signal.state === 'locked') {
     return signal.access === 'anonymous'
       ? '<a class="button button-primary" href="#/profile">Sign in</a>'
-      : '<a class="button button-primary" href="#/plans">See Pro</a>';
+      : '<a class="button button-primary" href="#/plans">Request access</a>';
   }
   return '';
 }
@@ -89,8 +89,8 @@ export function upgradePanel(what) {
   return `
     <section class="panel upgrade">
       <h2>${what} is part of Pro</h2>
-      <p>Pro includes full signals with entry, stop-loss and take-profit, the technical and fundamental analysis, and the advanced journal.</p>
-      <a class="button button-primary" href="#/plans">See Pro</a>
+      <p>Pro includes full signals with entry, stop-loss and take-profit, the technical and fundamental analysis, and the advanced journal. Access is by approval.</p>
+      <a class="button button-primary" href="#/plans">Request access</a>
     </section>`;
 }
 

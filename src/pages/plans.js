@@ -11,16 +11,16 @@ const dateTime = (iso) => new Date(iso).toLocaleString('en-GB', { day: 'numeric'
 const money = (n) => Number(n).toFixed(2);
 
 const FREE = ['Signal state only: no direction, entry, stop-loss or take-profit', 'Basic personal trading journal', 'No Telegram alerts or automatic trading'];
-const PRO = ['Full BUY and SELL signals', 'Exact entry, stop-loss and take-profit, at least 1:3', 'Technical and fundamental analysis', 'Advanced journal: history, analytics, calendar, discipline', 'Premium alerts and AI trade reviews, as they launch'];
+const PRO = ['Full BUY and SELL signals', 'Exact entry, stop-loss and take-profit, at least 1:3', 'Telegram alerts the moment a signal appears', 'Technical and fundamental analysis', 'Advanced journal: history, analytics, calendar, discipline'];
 
 function compare(price, credits, hours) {
   const days = Math.round((credits * hours) / 24);
   const list = (items) => `<ul class="plan-list">${items.map((i) => `<li>${escapeHtml(i)}</li>`).join('')}</ul>`;
   return `
     <div class="plan-grid">
-      <section class="panel plan-card"><h2>Free</h2><p class="plan-price">0 USDT</p>${list(FREE)}</section>
-      <section class="panel plan-card is-pro"><h2>Pro</h2><p class="plan-price">${money(price)} USDT <small>for ${days} days</small></p>${list(PRO)}
-        <p class="panel-note">${credits} credits. One credit is ${hours} hours of Pro. If no setup meets the plan, Pro shows “NO VALID SETUP — AI IS WAITING.” Signals are never made up.</p></section>
+      <section class="panel plan-card"><h2>Free</h2><p class="plan-price">Open to all</p>${list(FREE)}</section>
+      <section class="panel plan-card is-pro"><h2>Pro</h2><p class="plan-price">By approval</p>${list(PRO)}
+        <p class="panel-note">Access is given by the admin for a set time and ends automatically. If no setup meets the plan, Pro shows “NO VALID SETUP — AI IS WAITING.” Signals are never made up.</p></section>
     </div>`;
 }
 
@@ -125,7 +125,7 @@ function payPanel(networks, open) {
 
 export function plansPage() {
   const { ready, user, entitlement } = session.get();
-  const head = '<header class="page-head"><h1>Plans</h1><p>Free to start. Pro unlocks full signals.</p></header>';
+  const head = '<header class="page-head"><h1>Plans</h1><p>Signals are for approved members. Request access below.</p></header>';
   return {
     title: 'Plans',
     html: `${head}<div id="plans-view"><p class="result-empty">Loading plans…</p></div>`,
@@ -145,9 +145,10 @@ export function plansPage() {
         if (!settings) { box.innerHTML = '<section class="panel"><p class="result-empty">Plans are not set up in the database yet.</p></section>'; return; }
         const price = settings.pro_price_usdt; const credits = settings.credits_per_purchase; const hours = settings.hours_per_credit;
         let body = compare(price, credits, hours);
-        if (!user) body = `${body}<section class="panel"><p class="result-empty">Sign in to see your credits and buy Pro.</p><a class="button button-quiet" href="#/profile">Sign in</a></section>`;
+        if (!user) body = `${body}<section class="panel"><p class="result-empty">Sign in to request signal access.</p><a class="button button-quiet" href="#/profile">Sign in</a></section>`;
         else if (entitlement?.unlimited) body = statusPanel(entitlement) + alertsPanel(settings, entitlement, telegramLink, telegramCode) + body;
-        else body = statusPanel(entitlement) + (entitlement?.plan === 'pro' ? '' : accessPanel(accessRequest, user.email)) + alertsPanel(settings, entitlement, telegramLink, telegramCode) + body + payPanel(networks, open) + claimsList(claims);
+        // Access is by approval only: payments are not offered on this page.
+        else body = statusPanel(entitlement) + (entitlement?.plan === 'pro' ? '' : accessPanel(accessRequest, user.email)) + alertsPanel(settings, entitlement, telegramLink, telegramCode) + body;
         box.innerHTML = body;
       };
 
