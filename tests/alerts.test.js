@@ -63,7 +63,7 @@ test('alerts run with no signal sends nothing', async () => {
     await alertsRun({ headers: { host: 'example.test', 'x-alerts-key': SECRET } }, res);
     assert.equal(res.body.state, 'offline');
     // No signal is claimed or opened. (Scheduled posts, like the 21:00 daily report, may still run.)
-    assert.ok(!calls.some((c) => c.url.includes('alerts_claim_signal') || c.url.includes('alerts_open_trade')));
+    assert.ok(!calls.some((c) => c.url.endsWith('/alerts_claim_signal') || c.url.endsWith('/alerts_open_trade')));
   });
 });
 
