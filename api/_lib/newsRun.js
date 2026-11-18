@@ -66,7 +66,7 @@ export async function runNews({ origin, broadcast, now = Date.now(), maxAnalyses
   }
 
   // 2. Send what is due (works even if the calendar could not be read this time)
-  const due = (await serverRpc('alerts_news_due', {}).catch(() => [])) || [];
+  const due = (await serverRpc('alerts_news_due', {}).catch((err) => { console.error('news due check failed', err?.message); return []; })) || [];
   let members = null;
   for (const a of due) {
     if (!(await serverRpc('alerts_news_claim', { p_key: a.event_key }).catch(() => false))) continue;
@@ -74,6 +74,7 @@ export async function runNews({ origin, broadcast, now = Date.now(), maxAnalyses
     const n = members.length ? await broadcast(members, newsMessage(a, now)) : 0;
     await serverRpc('alerts_news_sent', { p_key: a.event_key, p_count: n }).catch(() => {});
     out.sent.push({ key: a.event_key, sent: n });
+    console.log('news outlook sent', a.title, a.starts_at, `${n} of ${members.length} chats`);
   }
   return out;
 }
