@@ -66,6 +66,9 @@ create table if not exists public.etb_payments (
   reviewed_at timestamptz,
   created_at timestamptz not null default now()
 );
+-- If an earlier draft of this table exists, bring it up to date.
+alter table public.etb_payments add column if not exists plan_id uuid references public.chart_plans (id) on delete set null;
+alter table public.etb_payments add column if not exists plan_name text not null default '';
 -- One receipt can be used once (a rejected one frees it to be corrected).
 create unique index if not exists etb_payments_ref_unique on public.etb_payments (method, upper(reference)) where status <> 'rejected';
 create index if not exists etb_payments_user_idx on public.etb_payments (user_id, created_at desc);
@@ -223,3 +226,6 @@ end;
 $$;
 revoke all on function public.alerts_etb_info(text, uuid) from public, anon, authenticated;
 grant execute on function public.alerts_etb_info(text, uuid) to anon;
+
+-- Make the new tables and functions visible to the website right away.
+notify pgrst, 'reload schema';
