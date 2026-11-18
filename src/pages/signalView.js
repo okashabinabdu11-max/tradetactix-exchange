@@ -2,7 +2,7 @@
 // removed whatever the viewer's plan does not include, so this file only
 // draws what it is given and never fills gaps.
 
-import { TIMEFRAMES, SIGNAL_STATES } from '../data/plan.js';
+import { TIMEFRAMES, SIGNAL_STATES, TRADE_STATES } from '../data/plan.js';
 import { price, ratio, escapeHtml } from '../lib/format.js';
 
 const time = (iso) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -60,6 +60,34 @@ function tradeBlock(signal) {
   return '';
 }
 
+const signedPips = (n) => (n > 0 ? `+${n}` : n < 0 ? `−${Math.abs(n)}` : '0');
+
+// The signal that was sent, followed until it ends.
+function tradeHead(t) {
+  const st = TRADE_STATES[t.status];
+  const dir = t.direction === 'buy' ? 'BUY' : 'SELL';
+  const label = t.status === 'running' ? `${dir} running` : st.label;
+  let line;
+  if (t.status === 'running') line = t.pips == null ? 'Live price unavailable right now.' : `${signedPips(t.pips)} pips running`;
+  else if (t.status === 'be-moved') line = t.pips == null ? `Stop to ${price(t.entry)}` : `${signedPips(t.pips)} pips running`;
+  else if (t.status === 'tp') line = `${signedPips(t.pips ?? 0)} pips smashed`;
+  else if (t.status === 'sl') line = `${signedPips(t.pips ?? 0)} pips`;
+  else line = '0 pips';
+  const live = t.status === 'running' || t.status === 'be-moved';
+  return `
+      <p class="verdict-state is-long tone-${st.tone}" id="verdict-state">${escapeHtml(label)}</p>
+      <p class="trade-pips tone-${st.tone}" id="trade-pips">${escapeHtml(line)}</p>
+      <dl class="signal-levels">
+        <div><dt>Direction</dt><dd>${dir === 'BUY' ? 'Buy' : 'Sell'}</dd></div>
+        <div><dt>Entry</dt><dd>${price(t.entry)}</dd></div>
+        <div><dt>Stop-loss</dt><dd>${t.status === 'be-moved' ? `${price(t.entry)} (BE)` : price(t.stop)}</dd></div>
+        <div><dt>Take-profit</dt><dd>${price(t.target)}</dd></div>
+      </dl>
+      <p class="verdict-meaning" id="verdict-reason">${t.status === 'be-moved' ? `<strong>Move your stop-loss to breakeven at ${price(t.entry)}.</strong> ` : ''}${live
+        ? `Signal sent at ${time(t.openedAt)}.${t.price != null ? ` Price now ${price(t.price)}; it updates about every 5 minutes.` : ''}`
+        : `Signal sent at ${time(t.openedAt)}, ended at ${time(t.closedAt)}. The page returns to analyzing after 12 hours or when a new signal is sent.`}</p>`;
+}
+
 export function verdictMarkup(signal) {
   const loading = !signal;
   const state = SIGNAL_STATES.find((s) => s.id === (signal?.state || 'offline')) || SIGNAL_STATES[0];
@@ -67,6 +95,10 @@ export function verdictMarkup(signal) {
   // For "no setup" the headline already carries the fixed sentence; show only the detail under it.
   let reason = loading ? 'Reading the 4H, 1H and 15M candles…' : (signal.reason || state.meaning);
   if (!loading && signal.state === 'no-setup') reason = reason.replace(state.label, '').replace(/^[\s.—-]+/, '').trim() || state.meaning;
+  // A running or just-finished signal takes the headline, unless the engine has a newer one.
+  const fresh = signal && (signal.state === 'buy' || signal.state === 'sell');
+  const t = signal?.trade;
+  const showTrade = !!t && TRADE_STATES[t.status] && (!fresh || t.status === 'running' || t.status === 'be-moved');
   const checks = signal?.checks || {};
   const keys = ['h4', 'h1', 'm15', null];
   const previews = signal?.previews && signal.previews.limit !== null && signal.previews.used !== null
@@ -75,9 +107,10 @@ export function verdictMarkup(signal) {
   return `
     <div class="verdict-head">
       <p class="panel-kicker">Signal engine</p>
-      <p class="verdict-state ${label.length > 8 ? 'is-long' : ''} ${label.length > 20 ? 'is-sentence' : ''} tone-${loading ? 'muted' : state.tone}" id="verdict-state">${escapeHtml(label)}</p>
+      ${showTrade ? tradeHead(signal.trade) : `
+      <p class="verdict-state ${label.length > 8 ? 'is-long' : ''} ${label.length > 20 ? 'is-sentence' : ''} tone-${loading ? 'yellow' : state.tone}" id="verdict-state">${escapeHtml(label)}</p>
       <p class="verdict-meaning" id="verdict-reason">${escapeHtml(reason)}</p>
-      ${loading ? '' : tradeBlock(signal)}
+      ${loading ? '' : tradeBlock(signal)}`}
     </div>
     <ol class="ladder" aria-label="Timeframe checks, from highest to lowest">
       ${TIMEFRAMES.map((tf, i) => rung(tf, loading || !signal.checks ? undefined : keys[i] ? checks[keys[i]] : undefined)).join('')}

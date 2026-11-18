@@ -5,6 +5,8 @@
 import { originOf, readSignal } from './_lib/engine.js';
 import { bearerToken, getEntitlement, useSignalPreview } from './_lib/access.js';
 import { gateSignal, signalKey } from './_lib/gate.js';
+import { serverRpc } from './_lib/telegram.js';
+import { tradeView } from './_lib/tradeView.js';
 
 const send = (res, status, body) => {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -43,5 +45,24 @@ export default async function handler(req, res) {
   if (entitlement.signed_in && !entitlement.shows_levels && !body.previews) {
     body.previews = { used: entitlement.previews_used ?? null, limit: entitlement.previews_limit ?? null };
   }
+  // Approved members also see the signal that is running now, or how the last one ended.
+  if (entitlement.shows_levels) body.trade = await latestTrade(origin, signal.price);
   return send(res, 200, { ...body, plan: entitlement.plan, readAt });
+}
+
+async function latestTrade(origin, fallbackPrice) {
+  try {
+    const rows = await serverRpc('alerts_latest_trade', {});
+    const row = Array.isArray(rows) ? rows[0] : null;
+    if (!row) return null;
+    let live = null;
+    if (row.status === 'open') {
+      // The live quote (cached for 5 minutes); the last 15M close if it is unavailable.
+      const q = await fetch(`${origin}/api/quote`, { signal: AbortSignal.timeout(5000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      live = Number.isFinite(q?.price) ? q.price : Number.isFinite(fallbackPrice) ? fallbackPrice : null;
+    }
+    return tradeView(row, live);
+  } catch {
+    return null; // tracking table not created yet, or the database is unreachable
+  }
 }
