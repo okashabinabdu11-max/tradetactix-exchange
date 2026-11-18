@@ -6,7 +6,7 @@ import { MODELS } from './support.js';
 
 export const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
 const GATEWAY_URL = 'https://ai-gateway.vercel.sh/v1/chat/completions';
-const geminiModels = () => [process.env.GEMINI_MODEL, 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest'].filter(Boolean);
+const geminiModels = () => [process.env.GEMINI_MODEL, 'gemini-flash-latest', 'gemini-3.8-flash', 'gemini-flash-lite-latest'].filter(Boolean);
 
 export function aiProviders(gatewayToken = null) {
   const list = [];
