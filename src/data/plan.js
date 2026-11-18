@@ -51,6 +51,7 @@ export const SECTIONS = [
   { id: 'account', label: 'Exness MT5', icon: 'link', stage: 8, adminOnly: true, summary: 'Connect your Exness MT5 account to show balance, open positions and trade history. The connection starts read-only.' },
   { id: 'plans', label: 'Plans', icon: 'star', stage: 7 },
   { id: 'profile', label: 'Profile', icon: 'user', stage: 2 },
+  { id: 'support', label: 'Support', icon: 'chat', stage: 1 },
   { id: 'admin', label: 'Admin', icon: 'key', stage: 7, adminOnly: true },
   { id: 'system', label: 'System', icon: 'gear', stage: 1, adminOnly: true },
 ];

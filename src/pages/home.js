@@ -6,6 +6,7 @@ import { session } from '../state/session.js';
 import { isSupabaseConfigured } from '../config.js';
 import { escapeHtml } from '../lib/format.js';
 import { profilePage, signedOutMarkup } from './profile.js';
+import { themeToggle } from '../ui/theme.js';
 
 const STAGES = [
   ['yellow', 'Analyzing'],
@@ -47,6 +48,7 @@ export function homePage() {
       <header class="home-bar">
         <a class="brand" href="#/home" aria-label="TradeTactix AI home"><span class="brand-mark" aria-hidden="true">T</span><span class="brand-name">TradeTactix <span class="brand-ai">AI</span></span></a>
         <nav class="home-bar-links" aria-label="Account">
+          ${themeToggle()}
           ${user ? '<a class="button button-primary" href="#/dashboard">Dashboard</a>' : '<button class="button button-quiet" type="button" data-auth="signin">Sign in</button><button class="button button-primary" type="button" data-auth="signup">Sign up</button>'}
         </nav>
       </header>
@@ -80,6 +82,8 @@ export function homePage() {
             <li><span><strong>Get approved</strong> and signals start arriving.</span></li>
           </ol>
         </section>
+
+        <section class="home-help"><h2>Questions?</h2><p>Ask the support assistant, or message the admin on Telegram at @Tradetactix1.</p><div class="form-actions"><a class="button button-quiet" href="#/support">Contact support</a><a class="button button-quiet" href="https://t.me/Tradetactix1" target="_blank" rel="noopener">Telegram @Tradetactix1</a></div></section>
 
         <p class="home-foot">Signals are a rules-based reading of the chart, not financial advice. Trading gold carries a real risk of loss. Live trading is not connected.</p>
       </div>`,

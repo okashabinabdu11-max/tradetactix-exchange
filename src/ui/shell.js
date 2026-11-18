@@ -1,3 +1,4 @@
+import { themeToggle } from './theme.js';
 import { SECTIONS, CURRENT_STAGE } from '../data/plan.js';
 import { appConfig } from '../config.js';
 import { icon } from './icons.js';
@@ -32,6 +33,7 @@ export function renderShell(root) {
         <div class="topbar-brand">${brand}</div>
         <div class="topbar-instrument"><strong>XAUUSD</strong><span>Gold vs US dollar</span></div>
         ${tradingChip}
+        ${themeToggle()}
       </header>
       <main id="main" class="main" tabindex="-1"></main>
     </div>

@@ -6,6 +6,7 @@ import { plansPage } from './pages/plans.js';
 import { adminPage } from './pages/admin.js';
 import { approvalGatePage } from './pages/gate.js';
 import { homePage } from './pages/home.js';
+import { supportPage } from './pages/support.js';
 import { dashboardPage } from './pages/dashboard.js';
 import { riskPage } from './pages/risk.js';
 import { plannedPage, morePage, systemPage } from './pages/other.js';
@@ -16,6 +17,7 @@ import { journalPage } from './pages/journal.js';
 import { historyPage, analyticsPage, calendarPage, disciplinePage } from './pages/insights.js';
 import { session, setSession } from './state/session.js';
 import { initBackend } from './services/backend.js';
+import { initTheme } from './ui/theme.js';
 
 const builtPages = {
   dashboard: dashboardPage,
@@ -33,11 +35,13 @@ const builtPages = {
   calendar: calendarPage,
   discipline: disciplinePage,
   more: morePage,
+  support: supportPage,
 };
 
 const routeIds = [...SECTIONS.map((s) => s.id), 'more', 'home'];
-const OPEN_ROUTES = ['plans', 'profile', 'more', 'admin'];
+const OPEN_ROUTES = ['plans', 'profile', 'more', 'admin', 'support'];
 
+initTheme();
 const root = document.getElementById('app');
 const main = renderShell(root);
 let cleanup = null;

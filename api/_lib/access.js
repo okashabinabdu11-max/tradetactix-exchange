@@ -45,3 +45,13 @@ export async function useSignalPreview(token, key) {
     return { allowed: false, used: null, limit: null };
   }
 }
+
+/** The signed-in caller's email, verified by Supabase from their own token. Never throws. */
+export async function accountEmail(token) {
+  if (!token) return null;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(6000) });
+    const user = res.ok ? await res.json() : null;
+    return typeof user?.email === 'string' ? user.email : null;
+  } catch { return null; }
+}
