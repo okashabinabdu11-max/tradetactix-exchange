@@ -22,6 +22,8 @@ function toLocalInput(iso) {
 }
 export const when = (iso) => new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
+let curveCount = 0;
+// Thin line fading from purple (left) to blue (right), no fill or dots.
 export function curveSvg(points) {
   const W = 640; const H = 220; const padX = 6; const padY = 16;
   const values = [0, ...points.map((p) => p.total)];
@@ -31,11 +33,16 @@ export function curveSvg(points) {
   const y = (v) => padY + (1 - (v - min) / span) * (H - padY * 2);
   const line = values.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
   const last = values[values.length - 1];
+  const gid = `curve-grad-${(curveCount += 1)}`; // unique per chart on the page
   return `
     <svg class="curve" viewBox="0 0 ${W} ${H}" role="img" aria-label="Running total of closed trades, ending at ${signed(last)}">
+      <defs>
+        <linearGradient id="${gid}" gradientUnits="userSpaceOnUse" x1="${padX}" y1="0" x2="${W - padX}" y2="0">
+          <stop offset="0" stop-color="#8a3ce6" /><stop offset="1" stop-color="#4a90e2" />
+        </linearGradient>
+      </defs>
       <line class="curve-zero" x1="${padX}" x2="${W - padX}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" />
-      <polyline class="curve-line" points="${line}" />
-      <circle class="curve-end ${tone(last)}" cx="${x(values.length - 1).toFixed(1)}" cy="${y(last).toFixed(1)}" r="5" />
+      <polyline class="curve-line" points="${line}" stroke="url(#${gid})" />
     </svg>`;
 }
 

@@ -455,8 +455,8 @@ a { color: inherit; text-decoration: none; }
 .data-table th:last-child, .data-table td:last-child { padding-right: 0; }
 
 .curve { display: block; width: 100%; height: auto; }
-.curve-zero { stroke: var(--line); stroke-width: 1.5; stroke-dasharray: 5 5; }
-.curve-line { fill: none; stroke: var(--gold); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.curve-zero { stroke: var(--line); stroke-width: 1; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
+.curve-line { fill: none; stroke-width: 3; stroke-linejoin: miter; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .curve-end { fill: var(--gold); stroke: var(--panel); stroke-width: 2; }
 .curve-end.is-profit { fill: var(--buy); }
 .curve-end.is-loss { fill: var(--sell); }
