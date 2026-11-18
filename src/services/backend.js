@@ -2,6 +2,7 @@
 // functions, so the rest of the app never touches keys or tables directly.
 
 import { createClient } from '@supabase/supabase-js';
+import { isStrongPassword } from '../lib/password.js';
 import { appConfig, isSupabaseConfigured } from '../config.js';
 import { session, setSession } from '../state/session.js';
 import { fromRow, toRow } from '../lib/riskSettings.js';
@@ -15,7 +16,7 @@ function friendly(error) {
   const msg = String(error?.message || error || 'Something went wrong.');
   if (/invalid login credentials/i.test(msg)) return 'Wrong email or password.';
   if (/email not confirmed/i.test(msg)) return 'Confirm your email first: open the link in the message Supabase sent you.';
-  if (/already registered/i.test(msg)) return 'An account with this email already exists. Sign in instead.';
+  if (/already registered/i.test(msg)) return 'An account with this email already exists. Tap Open Account with your password.';
   if (/signups? (are |is )?(not allowed|disabled)/i.test(msg)) return 'New accounts are switched off for this site.';
   if (/rate limit|too many requests|security purposes/i.test(msg)) return 'Too many attempts. Wait a few minutes, then try again.';
   if (/error sending confirmation/i.test(msg)) return 'The confirmation email could not be sent. Try Continue with Google, or try again later.';
@@ -86,6 +87,32 @@ export async function signIn(email, password) {
   return error ? { ok: false, message: friendly(error) } : { ok: true };
 }
 
+/**
+ * One button for everyone. Signs in when the email already has an account with
+ * this password; otherwise opens a new account. New accounts need a strong
+ * password; existing accounts sign in with the password they already have.
+ */
+export async function openAccount(email, password) {
+  if (!client) return { ok: false, message: NOT_CONFIGURED };
+  const first = await client.auth.signInWithPassword({ email, password });
+  if (!first.error) return { ok: true, created: false };
+  if (!/invalid login credentials/i.test(first.error.message || '')) return { ok: false, message: friendly(first.error) };
+  if (!isStrongPassword(password)) {
+    return { ok: false, code: 'weak', message: 'Wrong password for this email. New here? Choose a strong password that meets every rule below.' };
+  }
+  const up = await client.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin } });
+  if (up.error) {
+    return { ok: false, message: /already registered|already exists/i.test(up.error.message || '') ? 'Wrong password for this email.' : friendly(up.error) };
+  }
+  // An existing email comes back as a look-alike success with no identities.
+  if (up.data.user && Array.isArray(up.data.user.identities) && up.data.user.identities.length === 0) {
+    return { ok: false, message: 'Wrong password for this email.' };
+  }
+  if (up.data.session) return { ok: true, created: true };
+  const again = await client.auth.signInWithPassword({ email, password });
+  return again.error ? { ok: true, created: true, needsConfirmation: true } : { ok: true, created: true };
+}
+
 export async function signUp(email, password) {
   if (!client) return { ok: false, message: NOT_CONFIGURED };
   const { data, error } = await client.auth.signUp({
@@ -97,7 +124,7 @@ export async function signUp(email, password) {
   // For an email that is already registered Supabase reports success with an
   // empty identity list instead of an error, so say so plainly.
   if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-    return { ok: false, message: 'An account with this email already exists. Sign in instead, or use Continue with Google.' };
+    return { ok: false, message: 'An account with this email already exists. Tap Open Account with your password.' };
   }
   // With email confirmation on, there is a user but no session yet.
   return { ok: true, needsConfirmation: !data.session };
@@ -147,7 +174,7 @@ export async function signOut() {
 export async function saveRiskSettings(values) {
   const { user } = session.get();
   if (!client) return { ok: false, message: NOT_CONFIGURED };
-  if (!user) return { ok: false, message: 'Sign in to save your limits.' };
+  if (!user) return { ok: false, message: 'Open your account to save your limits.' };
   const { data, error } = await client
     .from('risk_settings')
     .upsert(toRow(values, user.id), { onConflict: 'user_id' })
@@ -180,7 +207,7 @@ export async function listTrades() {
 export async function saveTrade(values, id = null) {
   const { user } = session.get();
   if (!client) return { ok: false, message: NOT_CONFIGURED };
-  if (!user) return { ok: false, message: 'Sign in to save trades.' };
+  if (!user) return { ok: false, message: 'Open your account to save trades.' };
   const row = toTradeRow(values);
   const query = id
     ? client.from('trades').update(row).eq('id', id)
@@ -254,7 +281,7 @@ export const startPayment = (network) => call('start_payment', { p_network: netw
 /** Runs the server's on-chain check. Administrators only; the server enforces it. */
 export async function adminVerifyPayment(body) {
   const token = await getAccessToken();
-  if (!token) return { ok: false, message: 'Sign in first.' };
+  if (!token) return { ok: false, message: 'Open your account first.' };
   try {
     const res = await fetch('/api/verify-payment', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
     const data = await res.json();
@@ -292,7 +319,7 @@ export async function notifyAccess(kind, requestId) {
 
 export async function adminSetupTelegram() {
   const token = await getAccessToken();
-  if (!token) return { ok: false, message: 'Sign in first.' };
+  if (!token) return { ok: false, message: 'Open your account first.' };
   try {
     const res = await fetch('/api/telegram-setup', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json();

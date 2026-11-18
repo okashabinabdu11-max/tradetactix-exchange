@@ -8,7 +8,7 @@ import { tradeMetrics, summarize, equityCurve, extremes, breakdown, disciplineRe
 import { sessionStatus } from '../lib/sessions.js';
 import { MIN_REWARD_TO_RISK } from '../lib/risk.js';
 import { usd, price, escapeHtml } from '../lib/format.js';
-import { signed, signedR, tone, statsMarkup, calendarMarkup } from './journal.js';
+import { signed, signedR, tone, statsMarkup, calendarMarkup, curveSvg } from './journal.js';
 import { upgradePanel } from './signalView.js';
 
 const none = '<span class="empty-value">—</span>';
@@ -31,10 +31,10 @@ function tradesView({ title, intro, initial = {}, render, onAction }) {
   if (!isSupabaseConfigured || !ready || !user) {
     const text = !isSupabaseConfigured
       ? 'The database is not set up, so this page is unavailable.'
-      : !ready ? 'Checking sign-in…' : `Sign in to see your ${title.toLowerCase()}. It is built from the trades in your journal.`;
+      : !ready ? 'Checking sign-in…' : `Open your account to see your ${title.toLowerCase()}. It is built from the trades in your journal.`;
     return {
       title,
-      html: `${head}<section class="panel limits"><p class="result-empty">${text}</p>${isSupabaseConfigured && ready ? '<a class="button button-quiet" href="#/profile">Sign in</a>' : ''}</section>`,
+      html: `${head}<section class="panel limits"><p class="result-empty">${text}</p>${isSupabaseConfigured && ready ? '<a class="button button-quiet" href="#/home">Open Account</a>' : ''}</section>`,
     };
   }
 
@@ -150,23 +150,6 @@ export function historyPage() {
 }
 
 // ---------- Analytics ----------
-
-function curveSvg(points) {
-  const W = 640; const H = 220; const padX = 6; const padY = 16;
-  const values = [0, ...points.map((p) => p.total)];
-  const min = Math.min(...values); const max = Math.max(...values);
-  const span = max - min || 1;
-  const x = (i) => padX + (i / (values.length - 1)) * (W - padX * 2);
-  const y = (v) => padY + (1 - (v - min) / span) * (H - padY * 2);
-  const line = values.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
-  const last = values[values.length - 1];
-  return `
-    <svg class="curve" viewBox="0 0 ${W} ${H}" role="img" aria-label="Running total of closed trades, ending at ${signed(last)}">
-      <line class="curve-zero" x1="${padX}" x2="${W - padX}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" />
-      <polyline class="curve-line" points="${line}" />
-      <circle class="curve-end ${tone(last)}" cx="${x(values.length - 1).toFixed(1)}" cy="${y(last).toFixed(1)}" r="5" />
-    </svg>`;
-}
 
 function breakdownTable(title, rows) {
   if (!rows.length) return '';

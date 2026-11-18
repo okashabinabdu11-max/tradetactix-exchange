@@ -1,5 +1,6 @@
 import { session } from '../state/session.js';
-import { signIn, signUp, signOut, signInWithGoogle, resendConfirmation, googleEnabled } from '../services/backend.js';
+import { openAccount, signOut, signInWithGoogle, resendConfirmation, googleEnabled } from '../services/backend.js';
+import { passwordChecks } from '../lib/password.js';
 import { isSupabaseConfigured } from '../config.js';
 import { escapeHtml } from '../lib/format.js';
 
@@ -19,15 +20,21 @@ export function signedOutMarkup(notice) {
         <span class="field-label">Email</span>
         <input id="email" name="email" type="email" autocomplete="email" autocapitalize="none" spellcheck="false" required />
       </label>
-      <label class="field" for="password">
-        <span class="field-label">Password</span>
-        <input id="password" name="password" type="password" autocomplete="current-password" minlength="${MIN_PASSWORD}" required />
-        <span class="field-hint">At least ${MIN_PASSWORD} characters.</span>
-      </label>
-      <div class="form-actions">
-        <button class="button button-primary" type="submit" name="intent" value="signin">Sign in</button>
-        <button class="button button-quiet" type="submit" name="intent" value="signup">Create account</button>
+      <div class="field">
+        <label class="field-label" for="password">Password</label>
+        <div class="password-wrap">
+          <input id="password" name="password" type="password" autocomplete="current-password" minlength="${MIN_PASSWORD}" required />
+          <button class="password-toggle" type="button" id="password-toggle" aria-controls="password" aria-pressed="false">Show</button>
+        </div>
+        <p class="field-hint">New here? Your password needs:</p>
+        <ul class="pw-rules" id="pw-rules" aria-live="polite">
+          ${passwordChecks('').map((c) => `<li data-rule="${c.id}">${c.text}</li>`).join('')}
+        </ul>
       </div>
+      <div class="form-actions">
+        <button class="button button-primary" type="submit" name="intent" value="signin">Open Account</button>
+      </div>
+      <p class="field-hint">Already have an account? The same button opens it.</p>
       <p id="auth-status" class="form-status" role="status"></p>
       <button class="link-button" type="button" id="resend" hidden>Send the confirmation email again</button>
       <p class="panel-note">Your account stores your risk limits now, and your journal and trade history in later stages. Only you can read them.</p>
@@ -59,7 +66,7 @@ export function profilePage() {
     html: `
       <header class="page-head">
         <h1>Profile</h1>
-        <p>${user ? 'Your TradeTactix account.' : 'Sign in, or create your account the first time.'}</p>
+        <p>${user ? 'Your TradeTactix account.' : 'Enter your email and password, then tap Open Account.'}</p>
       </header>
       ${body}`,
     mount(root) {
@@ -104,10 +111,23 @@ export function profilePage() {
           setStatus(res.ok ? `Sent again to ${email}. Check your spam folder too.` : res.message, res.ok ? 'is-ok' : 'is-error');
         });
       }
+      const pw = root.querySelector('#password');
+      const toggle = root.querySelector('#password-toggle');
+      if (pw && toggle) {
+        toggle.addEventListener('click', () => {
+          const show = pw.type === 'password';
+          pw.type = show ? 'text' : 'password';
+          toggle.textContent = show ? 'Hide' : 'Show';
+          toggle.setAttribute('aria-pressed', String(show));
+          toggle.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+        });
+        const rules = root.querySelector('#pw-rules');
+        const paint = () => passwordChecks(pw.value).forEach((c) => rules.querySelector(`[data-rule="${c.id}"]`)?.classList.toggle('is-ok', c.ok));
+        pw.addEventListener('input', paint);
+      }
       if (form) {
         form.addEventListener('submit', async (e) => {
           e.preventDefault();
-          const intent = e.submitter?.value === 'signup' ? 'signup' : 'signin';
           const email = form.elements.email.value.trim();
           const password = form.elements.password.value;
           if (!/^\S+@\S+\.\S+$/.test(email)) { setStatus('Enter a valid email address.', 'is-error'); return; }
@@ -115,14 +135,14 @@ export function profilePage() {
 
           const buttons = form.querySelectorAll('button');
           buttons.forEach((b) => { b.disabled = true; });
-          setStatus(intent === 'signup' ? 'Creating account…' : 'Signing in…');
-          const res = intent === 'signup' ? await signUp(email, password) : await signIn(email, password);
+          setStatus('Opening your account…');
+          const res = await openAccount(email, password);
           buttons.forEach((b) => { b.disabled = false; });
 
-          if (!res.ok) { setStatus(res.message, 'is-error'); return; }
+          if (!res.ok) { setStatus(res.message, 'is-error'); if (res.code === 'weak') root.querySelector('#pw-rules')?.classList.add('is-attention'); return; }
           if (res.needsConfirmation) {
             form.elements.password.value = '';
-            setStatus(`Account created. Open the confirmation link sent to ${email}, then sign in here. Check your spam folder too.`, 'is-ok');
+            setStatus(`Account opened. Open the confirmation link sent to ${email}, then tap Open Account again. Check your spam folder too.`, 'is-ok');
             resend.dataset.email = email;
             resend.hidden = false;
           }

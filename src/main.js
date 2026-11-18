@@ -82,7 +82,7 @@ function readAuthError() {
   const expired = /expired|invalid/i.test(text);
   setSession({
     authNotice: expired
-      ? 'That link has expired or was already used. Sign in, or create the account again to get a new link.'
+      ? 'That link has expired or was already used. Tap Open Account to try again.'
       : `Sign-in did not finish: ${text}`,
   }, { silent: true });
   window.history.replaceState(null, '', `${window.location.pathname}#/profile`);

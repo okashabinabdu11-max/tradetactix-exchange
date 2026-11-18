@@ -145,7 +145,7 @@ export function plansPage() {
         if (!settings) { box.innerHTML = '<section class="panel"><p class="result-empty">Plans are not set up in the database yet.</p></section>'; return; }
         const price = settings.pro_price_usdt; const credits = settings.credits_per_purchase; const hours = settings.hours_per_credit;
         let body = compare(price, credits, hours);
-        if (!user) body = `${body}<section class="panel"><p class="result-empty">Sign in to request signal access.</p><a class="button button-quiet" href="#/profile">Sign in</a></section>`;
+        if (!user) body = `${body}<section class="panel"><p class="result-empty">Open your account to request signal access.</p><a class="button button-quiet" href="#/home">Open Account</a></section>`;
         else if (entitlement?.unlimited) body = statusPanel(entitlement) + alertsPanel(settings, entitlement, telegramLink, telegramCode) + body;
         // Access is by approval only: payments are not offered on this page.
         else body = statusPanel(entitlement) + (entitlement?.plan === 'pro' ? '' : accessPanel(accessRequest, user.email)) + alertsPanel(settings, entitlement, telegramLink, telegramCode) + body;

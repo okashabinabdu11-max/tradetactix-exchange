@@ -54,7 +54,7 @@ function tradeBlock(signal) {
   }
   if (signal.state === 'locked') {
     return signal.access === 'anonymous'
-      ? '<a class="button button-primary" href="#/profile">Sign in</a>'
+      ? '<a class="button button-primary" href="#/home">Open Account</a>'
       : '<a class="button button-primary" href="#/plans">Request access</a>';
   }
   return '';

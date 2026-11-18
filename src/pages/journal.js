@@ -1,7 +1,7 @@
 import { session } from '../state/session.js';
 import { listTrades, saveTrade, deleteTrade } from '../services/backend.js';
 import { isSupabaseConfigured } from '../config.js';
-import { tradeMetrics, summarize, dailyResults, monthGrid, validateTrade, localDateKey } from '../lib/journal.js';
+import { tradeMetrics, summarize, dailyResults, monthGrid, validateTrade, localDateKey, equityCurve, winRateWindows } from '../lib/journal.js';
 import { MIN_REWARD_TO_RISK } from '../lib/risk.js';
 import { usd, price, ratio, escapeHtml } from '../lib/format.js';
 import { STAGE_OF } from '../data/plan.js';
@@ -21,6 +21,57 @@ function toLocalInput(iso) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 export const when = (iso) => new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+export function curveSvg(points) {
+  const W = 640; const H = 220; const padX = 6; const padY = 16;
+  const values = [0, ...points.map((p) => p.total)];
+  const min = Math.min(...values); const max = Math.max(...values);
+  const span = max - min || 1;
+  const x = (i) => padX + (i / (values.length - 1)) * (W - padX * 2);
+  const y = (v) => padY + (1 - (v - min) / span) * (H - padY * 2);
+  const line = values.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const last = values[values.length - 1];
+  return `
+    <svg class="curve" viewBox="0 0 ${W} ${H}" role="img" aria-label="Running total of closed trades, ending at ${signed(last)}">
+      <line class="curve-zero" x1="${padX}" x2="${W - padX}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" />
+      <polyline class="curve-line" points="${line}" />
+      <circle class="curve-end ${tone(last)}" cx="${x(values.length - 1).toFixed(1)}" cy="${y(last).toFixed(1)}" r="5" />
+    </svg>`;
+}
+
+// Journal performance: the running total of closed trades and the win rate over time.
+export function performanceMarkup(trades, minRR) {
+  const curve = equityCurve(trades);
+  if (!curve.points.length) {
+    return `<section class="panel perf"><h2 class="panel-title">Performance</h2><p class="result-empty">Your chart and win rate appear here after your first closed trade.</p></section>`;
+  }
+  const last = curve.points[curve.points.length - 1].total;
+  const windows = winRateWindows(trades, minRR);
+  const card = (w) => {
+    const rate = w.winRate === null ? null : Math.round(w.winRate);
+    return `
+      <div class="wr-card">
+        <p class="wr-label">${w.label}</p>
+        ${rate === null ? '<p class="wr-rate is-empty">—</p><p class="wr-sub">No closed trades</p>' : `
+          <p class="wr-rate">${rate}%</p>
+          <div class="wr-bar" role="img" aria-label="${w.wins} won, ${w.losses} lost${w.breakeven ? `, ${w.breakeven} flat` : ''}">
+            <span class="wr-win" style="width:${(w.wins / w.closed) * 100}%"></span><span class="wr-flat" style="width:${(w.breakeven / w.closed) * 100}%"></span><span class="wr-loss" style="width:${(w.losses / w.closed) * 100}%"></span>
+          </div>
+          <p class="wr-sub">${w.wins} won · ${w.losses} lost${w.breakeven ? ` · ${w.breakeven} flat` : ''}</p>
+          <p class="wr-sub ${tone(w.netPnl)}">${signed(w.netPnl)}</p>`}
+      </div>`;
+  };
+  return `
+    <section class="panel perf" aria-labelledby="perf-title">
+      <h2 class="panel-title" id="perf-title">Performance</h2>
+      <p class="perf-total">Running total <strong class="${tone(last)}">${signed(last)}</strong></p>
+      ${curveSvg(curve.points)}
+      <p class="panel-note">Each point is a closed trade. The dashed line is $0. Deepest fall from a peak: ${usd(curve.maxDrawdown)}.</p>
+      <h3 class="perf-sub">Win rate</h3>
+      <div class="wr-grid">${windows.map(card).join('')}</div>
+      <a class="text-link" href="#/analytics">Full analytics</a>
+    </section>`;
+}
 
 export function statsMarkup(s) {
   const stat = (label, value, sub = '', cls = '') => `<div class="stat"><dt>${label}</dt><dd class="${cls}">${value}</dd>${sub ? `<dd class="sub">${sub}</dd>` : ''}</div>`;
@@ -171,10 +222,10 @@ export function journalPage() {
   if (!isSupabaseConfigured || !ready || !user) {
     const text = !isSupabaseConfigured
       ? 'The database is not set up, so the journal is unavailable.'
-      : !ready ? 'Checking sign-in…' : 'Sign in to keep a journal. Your trades are stored in your account and only you can read them.';
+      : !ready ? 'Checking sign-in…' : 'Open your account to keep a journal. Your trades are stored in your account and only you can read them.';
     return {
       title: 'Journal',
-      html: `${head}<section class="panel limits"><p class="result-empty">${text}</p>${isSupabaseConfigured && ready ? '<a class="button button-quiet" href="#/profile">Sign in</a>' : ''}</section>`,
+      html: `${head}<section class="panel limits"><p class="result-empty">${text}</p>${isSupabaseConfigured && ready ? '<a class="button button-quiet" href="#/home">Open Account</a>' : ''}</section>`,
     };
   }
 
@@ -209,6 +260,7 @@ export function journalPage() {
         const editingTrade = ui.editing && ui.editing !== 'new' ? ui.trades.find((t) => t.id === ui.editing) : null;
         box.innerHTML = `
           ${statsMarkup(summarize(ui.trades, minRR))}
+          ${performanceMarkup(ui.trades, minRR)}
           ${calendarMarkup(ui.trades, ui.view)}
           ${ui.editing ? formMarkup(editingTrade) : '<button class="button button-primary log-button" type="button" data-action="new">Log a trade</button>'}
           <section class="panel trades" aria-labelledby="trades-title">

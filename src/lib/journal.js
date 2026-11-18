@@ -193,6 +193,16 @@ export const toTradeRow = (v) => ({
 // ---------- Analytics ----------
 
 /** Closed trades in closing order with the running total, plus the deepest fall from a peak. */
+/** Win rate and results of trades closed in the last 7 days, last 30 days and all time. */
+export function winRateWindows(trades, minRewardToRisk = MIN_REWARD_TO_RISK, now = Date.now()) {
+  const within = (days) => trades.filter((t) => t.closedAt && now - new Date(t.closedAt).getTime() <= days * 86400e3);
+  return [
+    { id: 'week', label: 'Last 7 days', ...summarize(within(7), minRewardToRisk) },
+    { id: 'month', label: 'Last 30 days', ...summarize(within(30), minRewardToRisk) },
+    { id: 'all', label: 'All time', ...summarize(trades, minRewardToRisk) },
+  ];
+}
+
 export function equityCurve(trades) {
   const closed = trades
     .map((t) => ({ t, m: tradeMetrics(t) }))

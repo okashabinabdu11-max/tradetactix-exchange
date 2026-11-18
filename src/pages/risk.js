@@ -61,8 +61,8 @@ function limitsPanel({ ready, user, riskSettings, settingsError }) {
   if (!user) {
     return `
       <section class="panel limits" aria-labelledby="limits-title">${head}
-        <p class="result-empty">Sign in to save your own risk per trade, minimum reward-to-risk and daily limits.</p>
-        <a class="button button-quiet" href="#/profile">Sign in</a>
+        <p class="result-empty">Open your account to save your own risk per trade, minimum reward-to-risk and daily limits.</p>
+        <a class="button button-quiet" href="#/home">Open Account</a>
       </section>`;
   }
   if (settingsError) {

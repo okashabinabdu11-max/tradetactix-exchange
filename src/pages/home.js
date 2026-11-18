@@ -1,4 +1,4 @@
-// The first page everyone sees: what TradeTactix does, Sign up / Sign in, and a
+// The first page everyone sees: what TradeTactix does, Open Account, and a
 // Dashboard button that opens the app with all its sections. Nothing here is a
 // live signal or a result: the colour row only explains what members will see.
 
@@ -63,8 +63,7 @@ export function homePage() {
 
   const authButtons = user
     ? '<a class="button button-primary" href="#/dashboard" id="home-dashboard">Dashboard</a>'
-    : `<button class="button button-primary" type="button" data-auth="signup">Sign up</button>
-       <button class="button button-quiet" type="button" data-auth="signin">Sign in</button>
+    : `<button class="button button-primary" type="button" data-auth="open">Open Account</button>
        <a class="button button-quiet" href="#/dashboard" id="home-dashboard">Dashboard</a>`;
 
   return {
@@ -74,7 +73,7 @@ export function homePage() {
         <a class="brand" href="#/home" aria-label="TradeTactix home"><span class="brand-mark" aria-hidden="true">T</span><span class="brand-name">TradeTactix</span></a>
         <nav class="home-bar-links" aria-label="Account">
           ${themeToggle()}
-          ${user ? '<a class="button button-primary" href="#/dashboard">Dashboard</a>' : '<button class="button button-quiet" type="button" data-auth="signin">Sign in</button><button class="button button-primary" type="button" data-auth="signup">Sign up</button>'}
+          ${user ? '<a class="button button-primary" href="#/dashboard">Dashboard</a>' : '<button class="button button-primary" type="button" data-auth="open">Open Account</button>'}
         </nav>
       </header>
       <div class="home">
@@ -100,7 +99,7 @@ export function homePage() {
         </section>
 
         <section class="home-auth" id="home-auth" aria-labelledby="home-auth-title">
-          <h2 id="home-auth-title">${user ? 'Your account' : 'Create your account or sign in'}</h2>
+          <h2 id="home-auth-title">${user ? 'Your account' : 'Open your account'}</h2>
           ${account}
         </section>
 
@@ -113,7 +112,7 @@ export function homePage() {
         <section class="home-join">
           <h2>How to join</h2>
           <ol>
-            <li><span><strong>Sign up</strong> with your email on this page.</span></li>
+            <li><span><strong>Open your account</strong> with your email on this page.</span></li>
             <li><span><strong>Send your Telegram username</strong> on the Plans page.</span></li>
             <li><span><strong>Get approved</strong> and signals start arriving.</span></li>
           </ol>
@@ -124,16 +123,10 @@ export function homePage() {
         <p class="home-foot">Signals are a rules-based reading of the chart, not financial advice. Trading gold carries a real risk of loss. Live trading is not connected.</p>
       </div>`,
     mount(root) {
-      // Sign up / Sign in buttons jump to the form and make that choice the main button.
-      const choose = (mode) => {
+      // Open Account buttons jump to the form.
+      const choose = () => {
         const form = root.querySelector('#auth-form');
         if (!form) return;
-        const up = form.querySelector('button[value="signup"]');
-        const inn = form.querySelector('button[value="signin"]');
-        const [first, second] = mode === 'signup' ? [up, inn] : [inn, up];
-        first.className = 'button button-primary'; second.className = 'button button-quiet';
-        first.parentNode.insertBefore(first, second); // Enter submits the chosen action
-        root.querySelector('#home-auth-title').textContent = mode === 'signup' ? 'Create your account' : 'Sign in';
         form.scrollIntoView({ behavior: 'smooth', block: 'start' });
         form.querySelector('#email')?.focus({ preventScroll: true });
       };

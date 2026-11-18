@@ -9,8 +9,8 @@ export function approvalGatePage(title) {
   else if (!user) {
     body = `
       <p>Signals, charts and analysis are for approved members only.</p>
-      <ol class="gate-steps"><li>Sign in or create an account.</li><li>Send your Telegram username on the Plans page.</li><li>Wait for the admin to approve you.</li></ol>
-      <div class="form-actions"><a class="button button-primary" href="#/home">Sign in or sign up</a><a class="button button-quiet" href="#/plans">How access works</a></div>`;
+      <ol class="gate-steps"><li>Open your account.</li><li>Send your Telegram username on the Plans page.</li><li>Wait for the admin to approve you.</li></ol>
+      <div class="form-actions"><a class="button button-primary" href="#/home">Open Account</a><a class="button button-quiet" href="#/plans">How access works</a></div>`;
   } else {
     body = `
       <p>Your account does not have signal access yet. Send a request and wait for the admin to approve you. Access lasts for the time the admin chooses and stops automatically after.</p>
