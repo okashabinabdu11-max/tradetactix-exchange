@@ -6,7 +6,7 @@ import { getAccessToken } from '../services/backend.js';
 import { STAGE_OF } from '../data/plan.js';
 import { verdictMarkup, levelsMarkup } from './signalView.js';
 import { loadTradingViewWidget } from '../ui/tvWidget.js';
-import { CALENDAR_CONFIG, NEWS_CONFIG } from '../data/widgets.js';
+import { NEWS_CONFIG } from '../data/widgets.js';
 
 const REFRESH_MS = 5 * 60e3;
 const myMinimum = () => (session.get().user ? session.get().riskSettings?.minRewardToRisk : null) ?? MIN_REWARD_TO_RISK;
@@ -84,6 +84,44 @@ function outlookMarkup(items) {
   }).join('')}</ul>`;
 }
 
+async function loadCalendar() {
+  const res = await fetch('/api/calendar').catch(() => null);
+  const body = res && res.ok ? await res.json().catch(() => null) : null;
+  return Array.isArray(body?.events) ? body.events : null;
+}
+
+const ETH_TZ = 'Africa/Addis_Ababa';
+const dayLabel = (iso) => new Date(iso).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short', timeZone: ETH_TZ });
+const hourLabel = (iso) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: ETH_TZ });
+
+// This week's US releases, grouped by day in Ethiopia time. Events with a news
+// outlook show its lean (bullish / bearish / neutral for gold).
+function calendarListMarkup(events, outlooks) {
+  if (events === null) return '<p class="result-empty">The calendar is not available right now. Try again in a few minutes.</p>';
+  if (!events.length) return '<p class="result-empty">No medium or high impact US releases left this week.</p>';
+  const now = Date.now();
+  const lean = (e) => outlooks.find((o) => o.title === e.title && Math.abs(Date.parse(o.startsAt) - Date.parse(e.startsAt)) < 60e3);
+  const byDay = new Map();
+  for (const e of events) { const d = dayLabel(e.startsAt); if (!byDay.has(d)) byDay.set(d, []); byDay.get(d).push(e); }
+  const today = dayLabel(new Date(now).toISOString());
+  return [...byDay.entries()].map(([day, list]) => `
+    <div class="cal-day">
+      <h3>${escapeHtml(day)}${day === today ? ' <span class="tag">Today</span>' : ''}</h3>
+      <ul>${list.map((e) => {
+        const past = Date.parse(e.startsAt) <= now;
+        const o = lean(e);
+        const [label, tone] = o ? (BIAS[o.bias] || BIAS.neutral) : [];
+        return `<li class="cal-row ${past ? 'is-past' : ''}">
+          <span class="cal-time">${hourLabel(e.startsAt)}</span>
+          <span class="cal-impact is-${e.impact}" title="${e.impact === 'high' ? 'High impact' : 'Medium impact'}" aria-label="${e.impact === 'high' ? 'High impact' : 'Medium impact'}"></span>
+          <span class="cal-main"><strong>${escapeHtml(e.title)}</strong>
+            <span class="cal-nums">Forecast ${escapeHtml(e.forecast || '—')} · Previous ${escapeHtml(e.previous || '—')}${past ? ' · released' : ''}</span>
+            ${o ? `<span class="cal-lean ${tone}">${label}</span>` : ''}</span>
+        </li>`;
+      }).join('')}</ul>
+    </div>`).join('');
+}
+
 async function loadOutlook() {
   const token = await getAccessToken().catch(() => null);
   const res = await fetch('/api/news', { headers: token ? { Authorization: `Bearer ${token}` } : {} }).catch(() => null);
@@ -108,8 +146,8 @@ ${analysisOpen() ? `      <section class="panel fundamentals" aria-labelledby="o
       </section>
       <section class="panel fundamentals" aria-labelledby="cal-h">
         <h2 id="cal-h" class="panel-title">US economic calendar</h2>
-        <div class="widget-frame" id="tv-calendar"></div>
-        <p class="panel-note">Medium and high impact United States releases, from TradingView. Gold often moves sharply around inflation, jobs and Federal Reserve announcements, so check this before acting on a signal.</p>
+        <div id="us-calendar"><p class="result-empty">Loading the calendar…</p></div>
+        <p class="panel-note">Medium and high impact United States releases this week, in Ethiopia time. It is the same list the bot uses for news outlooks and the news safety pause. Gold often moves sharply around inflation, jobs and Federal Reserve announcements.</p>
       </section>
       <section class="panel fundamentals" aria-labelledby="news-h">
         <h2 id="news-h" class="panel-title">Gold news</h2>
@@ -127,11 +165,15 @@ ${analysisOpen() ? `      <section class="panel fundamentals" aria-labelledby="o
       const timer = setInterval(() => { if (!document.hidden) refresh(); }, REFRESH_MS);
       // The widgets are loaded once and left alone; only the levels above refresh.
       const outlook = root.querySelector('#news-outlook');
-      if (outlook) loadOutlook().then((items) => { if (alive) outlook.innerHTML = outlookMarkup(items); });
-      if (root.querySelector('#tv-calendar')) {
-        loadTradingViewWidget(root.querySelector('#tv-calendar'), 'embed-widget-events.js', CALENDAR_CONFIG, 'The economic calendar could not load.');
-        loadTradingViewWidget(root.querySelector('#tv-news'), 'embed-widget-timeline.js', NEWS_CONFIG, 'The news feed could not load.');
+      const cal = root.querySelector('#us-calendar');
+      if (outlook) {
+        Promise.all([loadOutlook(), loadCalendar()]).then(([items, events]) => {
+          if (!alive) return;
+          outlook.innerHTML = outlookMarkup(items);
+          if (cal) cal.innerHTML = calendarListMarkup(events, items || []);
+        });
       }
+      if (root.querySelector('#tv-news')) loadTradingViewWidget(root.querySelector('#tv-news'), 'embed-widget-timeline.js', NEWS_CONFIG, 'The news feed could not load.');
       return () => { alive = false; clearInterval(timer); };
     },
   };

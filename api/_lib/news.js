@@ -44,6 +44,16 @@ export function highImpactUsd(feed) {
     .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
 }
 
+/** US medium and high impact events, for the website's calendar. Pure. */
+export function usCalendar(feed, now = Date.now()) {
+  const from = now - 12 * 3600e3;
+  return (Array.isArray(feed) ? feed : [])
+    .filter((e) => e && e.country === 'USD' && /high|medium/i.test(e.impact || '') && e.title && Number.isFinite(Date.parse(e.date)))
+    .map((e) => ({ key: eventKey(e), title: String(e.title), startsAt: new Date(e.date).toISOString(), impact: /high/i.test(e.impact) ? 'high' : 'medium', forecast: e.forecast || null, previous: e.previous || null }))
+    .filter((e) => Date.parse(e.startsAt) >= from)
+    .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
+}
+
 /** The two scenarios, from the rule table (not from the AI). */
 export function scenarios(title) {
   const r = ruleFor(title);

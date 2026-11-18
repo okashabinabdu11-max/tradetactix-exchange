@@ -114,3 +114,19 @@ test('a busy model falls through to the next; a busy AI far from the release wai
   const near = await runNews({ origin: 'https://x.test', broadcast: async () => 0, now: Date.parse('2026-11-20T12:30:00Z') }); // 60 min before
   assert.equal(saved.length, 1); assert.equal(saved[0].p_source, 'rules'); assert.equal(near.analyzed[0].source, 'rules');
 });
+
+test('website calendar: US medium and high events from 12 hours ago onward, sorted', async () => {
+  const { usCalendar } = await import('../api/_lib/news.js');
+  const now = Date.parse('2026-11-18T15:00:00Z');
+  const feed = [
+    { title: 'FOMC Meeting Minutes', country: 'USD', date: '2026-11-18T14:00:00-05:00', impact: 'High', forecast: '', previous: '' },
+    { title: 'Unemployment Claims', country: 'USD', date: '2026-11-19T08:30:00-05:00', impact: 'High', forecast: '197K', previous: '200K' },
+    { title: 'Crude Oil Inventories', country: 'USD', date: '2026-11-18T10:30:00-05:00', impact: 'Medium', forecast: '', previous: '' },
+    { title: 'Old', country: 'USD', date: '2026-11-17T08:30:00-05:00', impact: 'High' },
+    { title: 'Low one', country: 'USD', date: '2026-11-18T12:00:00-05:00', impact: 'Low' },
+    { title: 'German PMI', country: 'EUR', date: '2026-11-18T12:00:00-05:00', impact: 'High' },
+  ];
+  const list = usCalendar(feed, now);
+  assert.deepEqual(list.map((e) => [e.title, e.impact]), [['Crude Oil Inventories', 'medium'], ['FOMC Meeting Minutes', 'high'], ['Unemployment Claims', 'high']]);
+  assert.equal(list[1].startsAt, '2026-11-18T19:00:00.000Z');
+});

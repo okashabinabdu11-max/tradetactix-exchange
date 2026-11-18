@@ -13,7 +13,7 @@ export const RULES_ONLY_WITHIN_MS = 75 * 60e3;
 const FEED_TTL_MS = 30 * 60e3; // the feed changes rarely; do not ask for it every 5 minutes
 let cache = { at: 0, feed: null };
 
-async function calendar(now) {
+export async function calendar(now = Date.now()) {
   if (cache.feed && now - cache.at < FEED_TTL_MS) return cache.feed;
   const r = await fetch(CALENDAR_URL, { headers: { 'User-Agent': 'TradeTactix/1.0', Accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
   if (!r.ok) throw new Error(`calendar ${r.status}`);
