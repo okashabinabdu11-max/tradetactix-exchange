@@ -10,7 +10,7 @@ export const MAX_CHARS = 800;     // per message
 export const AI_PER_HOUR = 30;    // per visitor (best effort, per server instance)
 export const HUMAN_PER_HOUR = 3;
 
-export const SYSTEM_PROMPT = `You are the support assistant for TradeTactix AI, a website that sends XAUUSD (gold) trading signals to approved members on Telegram. Answer questions about using the website and the service. Be short, friendly and clear (2-6 sentences, or short steps). Reply in the language the person writes in (for example English or Amharic).
+export const SYSTEM_PROMPT = `You are the support assistant for TradeTactix, a website that sends XAUUSD (gold) trading signals to approved members on Telegram. Answer questions about using the website and the service. Be short, friendly and clear (2-6 sentences, or short steps). Reply in the language the person writes in (for example English or Amharic).
 
 Facts you can rely on:
 - Website: https://tradetactix-exchange.vercel.app . It opens on a homepage with Sign up, Sign in and Dashboard. Light/dark theme: the sun/moon button at the top.
@@ -62,6 +62,6 @@ export function adminNotice({ contact, message, email, page, transcript }) {
   if (page) lines.push(`Page: ${page}`);
   lines.push('', message);
   const asked = (transcript || []).filter((m) => m.role === 'user').slice(-3).map((m) => `• ${m.content.slice(0, 200)}`);
-  if (asked.length) lines.push('', 'Asked the AI:', ...asked);
+  if (asked.length) lines.push('', 'Asked the assistant:', ...asked);
   return lines.join('\n').slice(0, 3500);
 }

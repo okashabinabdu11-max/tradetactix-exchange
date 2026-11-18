@@ -3,7 +3,7 @@
 const env = import.meta.env || {};
 
 export const appConfig = Object.freeze({
-  appName: 'TradeTactix AI',
+  appName: 'TradeTactix',
   instrument: 'XAUUSD',
   mode: env.MODE || 'development',
   // The project URL and the publishable key are public by design: they only

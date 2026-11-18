@@ -6,9 +6,9 @@ import { icon } from './icons.js';
 const MOBILE_TABS = ['dashboard', 'signals', 'risk', 'journal'];
 
 const brand = `
-  <a class="brand" href="#/home" aria-label="TradeTactix AI home">
+  <a class="brand" href="#/home" aria-label="TradeTactix home">
     <span class="brand-mark" aria-hidden="true">T</span>
-    <span class="brand-name">TradeTactix <span class="brand-ai">AI</span></span>
+    <span class="brand-name">TradeTactix</span>
   </a>`;
 
 function navLink(section) {

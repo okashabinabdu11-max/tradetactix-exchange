@@ -71,7 +71,7 @@ export function homePage() {
     title: 'Gold signals',
     html: `
       <header class="home-bar">
-        <a class="brand" href="#/home" aria-label="TradeTactix AI home"><span class="brand-mark" aria-hidden="true">T</span><span class="brand-name">TradeTactix <span class="brand-ai">AI</span></span></a>
+        <a class="brand" href="#/home" aria-label="TradeTactix home"><span class="brand-mark" aria-hidden="true">T</span><span class="brand-name">TradeTactix</span></a>
         <nav class="home-bar-links" aria-label="Account">
           ${themeToggle()}
           ${user ? '<a class="button button-primary" href="#/dashboard">Dashboard</a>' : '<button class="button button-quiet" type="button" data-auth="signin">Sign in</button><button class="button button-primary" type="button" data-auth="signup">Sign up</button>'}
@@ -81,7 +81,7 @@ export function homePage() {
         <section class="home-hero">
           <p class="home-pair">XAUUSD gold</p>
           <h1>Gold signals, sent straight to your Telegram.</h1>
-          <p class="home-lede">TradeTactix AI reads gold on the 4H, 1H and 15M charts and sends a signal only when every step of the plan lines up, with entry, stop-loss and take-profit.</p>
+          <p class="home-lede">TradeTactix reads gold on the 4H, 1H and 15M charts and sends a signal only when every step of the plan lines up, with entry, stop-loss and take-profit.</p>
           <div class="form-actions home-cta">${authButtons}</div>
           <ul class="home-stages" aria-label="What the signal screen shows">
             ${STAGES.map(([tone, text]) => `<li class="tone-${tone}"><span class="home-dot"></span>${text}</li>`).join('')}
@@ -119,7 +119,7 @@ export function homePage() {
           </ol>
         </section>
 
-        <section class="home-help"><h2>Questions?</h2><p>Ask the support assistant, or message the admin on Telegram at @Tradetactix1.</p><div class="form-actions"><a class="button button-quiet" href="#/support">Contact support</a><a class="button button-quiet" href="https://t.me/Tradetactix1" target="_blank" rel="noopener">Telegram @Tradetactix1</a></div></section>
+        <section class="home-help"><h2>Questions?</h2><p>Ask the AI assistant, or message the admin on Telegram at @Tradetactix1.</p><div class="form-actions"><a class="button button-quiet" href="#/support">Contact support</a><a class="button button-quiet" href="https://t.me/Tradetactix1" target="_blank" rel="noopener">Telegram @Tradetactix1</a></div></section>
 
         <p class="home-foot">Signals are a rules-based reading of the chart, not financial advice. Trading gold carries a real risk of loss. Live trading is not connected.</p>
       </div>`,

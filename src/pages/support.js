@@ -1,4 +1,4 @@
-// Support: an AI assistant that answers questions about TradeTactix, and a
+// Support: an assistant that answers questions about TradeTactix, and a
 // "Message the admin" form that reaches the admin on Telegram. The chat lives
 // only in this tab; nothing is stored.
 
@@ -33,7 +33,7 @@ export function supportPage() {
     title: 'Support',
     html: `
       <header class="page-head"><h1>Support</h1><p>Ask the AI assistant. For big problems, message the admin on Telegram: @Tradetactix1.</p></header>
-      <section class="panel support" aria-label="Chat with the support assistant">
+      <section class="panel support" aria-label="Chat with the AI assistant">
         <div class="chat-log" id="chat-log" aria-live="polite">
           ${bubble({ role: 'assistant', content: WELCOME })}
           ${chat.map(bubble).join('')}

@@ -66,7 +66,7 @@ function render(routeId, { keepScroll = false } = {}) {
   else page = builtPages[routeId] ? builtPages[routeId]() : plannedPage(routeId);
   main.innerHTML = page.html;
   cleanup = page.mount ? page.mount(main) : null;
-  document.title = `${page.title} | TradeTactix AI`;
+  document.title = `${page.title} | TradeTactix`;
   setActiveNav(root, routeId);
   setAdminNav(root, Boolean(session.get().entitlement?.is_admin));
   if (!keepScroll) window.scrollTo(0, 0);

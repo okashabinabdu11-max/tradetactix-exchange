@@ -59,7 +59,7 @@ export function profilePage() {
     html: `
       <header class="page-head">
         <h1>Profile</h1>
-        <p>${user ? 'Your TradeTactix AI account.' : 'Sign in, or create your account the first time.'}</p>
+        <p>${user ? 'Your TradeTactix account.' : 'Sign in, or create your account the first time.'}</p>
       </header>
       ${body}`,
     mount(root) {

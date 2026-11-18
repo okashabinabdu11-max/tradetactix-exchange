@@ -44,7 +44,7 @@ export default async function handler(req, res) {
       }
     }
     if (body.kind === 'approved' && info.status === 'approved' && info.chat_id) {
-      await telegram('sendMessage', { chat_id: info.chat_id, text: `Your TradeTactix AI signal access is approved until ${when(info.granted_until)} (Ethiopia time). You will get BUY and SELL alerts here until then.`, disable_web_page_preview: true }).then(() => { sent += 1; }).catch(() => {});
+      await telegram('sendMessage', { chat_id: info.chat_id, text: `Your TradeTactix signal access is approved until ${when(info.granted_until)} (Ethiopia time). You will get BUY and SELL alerts here until then.`, disable_web_page_preview: true }).then(() => { sent += 1; }).catch(() => {});
     }
     return send(res, 200, { sent });
   } catch (err) {

@@ -33,7 +33,7 @@ export default async function handler(req, res) {
       await serverRpc('alerts_unlink_chat', { p_chat_id: chat });
       await reply(chat, 'Alerts are off for this chat. Connect again from the Plans page any time.');
     } else {
-      await reply(chat, 'This bot only sends TradeTactix AI alerts. Send /stop to turn them off.');
+      await reply(chat, 'This bot only sends TradeTactix alerts. Send /stop to turn them off.');
     }
   } catch (err) {
     console.error('webhook failed', err?.message);

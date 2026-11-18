@@ -12,7 +12,7 @@ export const STAGES = [
   { n: 6, title: 'Fundamental analysis', detail: 'Economic calendar and news events that affect gold.' },
   { n: 7, title: 'Free month, Pro plan, credits, USDT payments and admin site', detail: 'Free and Pro plans, credits, USDT payments checked on chain, and an admin dashboard. Payments stay in test mode until each network is verified.' },
   { n: 8, title: 'Exness MT5 connection and automatic journal', detail: 'Read-only link to your account: balance, positions, and trades imported into the journal.' },
-  { n: 9, title: 'AI trade reviews', detail: 'A written review of each closed trade against the plan.' },
+  { n: 9, title: 'Trade reviews', detail: 'A written review of each closed trade against the plan.' },
   { n: 10, title: 'Authorised live execution', detail: 'Automatic order placement, only after you explicitly switch it on.' },
 ];
 
@@ -46,7 +46,7 @@ export const SECTIONS = [
   { id: 'history', label: 'History', icon: 'clock', stage: 3 },
   { id: 'analytics', label: 'Analytics', icon: 'bars', stage: 3 },
   { id: 'calendar', label: 'Calendar', icon: 'calendar', stage: 3 },
-  { id: 'reviews', label: 'AI reviews', icon: 'spark', stage: 9, adminOnly: true, summary: 'A written review of each closed trade: what followed the plan and what did not.' },
+  { id: 'reviews', label: 'Trade reviews', icon: 'spark', stage: 9, adminOnly: true, summary: 'A written review of each closed trade: what followed the plan and what did not.' },
   { id: 'discipline', label: 'Discipline', icon: 'target', stage: 3 },
   { id: 'account', label: 'Exness MT5', icon: 'link', stage: 8, adminOnly: true, summary: 'Connect your Exness MT5 account to show balance, open positions and trade history. The connection starts read-only.' },
   { id: 'plans', label: 'Plans', icon: 'star', stage: 7 },
