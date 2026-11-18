@@ -114,7 +114,7 @@ export async function resendConfirmation(email) {
 }
 
 /** Asks the project which sign-in methods are switched on. */
-async function googleEnabled() {
+export async function googleEnabled() {
   try {
     const res = await fetch(`${appConfig.supabaseUrl}/auth/v1/settings`, { headers: { apikey: appConfig.supabaseAnonKey } });
     if (!res.ok) return null;

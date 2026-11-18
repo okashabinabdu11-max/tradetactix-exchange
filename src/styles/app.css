@@ -651,3 +651,5 @@ a { color: inherit; text-decoration: none; }
 .user-grant { display: grid; gap: 8px; justify-items: start; }
 .user-grant .form-status { min-height: 0; }
 @media (max-width: 400px) { .dur-custom { grid-template-columns: 1fr 1fr; } .dur-custom .button { grid-column: 1 / -1; justify-self: start; } }
+#google-block { display: grid; gap: 16px; }
+#google-block[hidden] { display: none; }

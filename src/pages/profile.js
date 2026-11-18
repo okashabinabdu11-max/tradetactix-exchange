@@ -1,5 +1,5 @@
 import { session } from '../state/session.js';
-import { signIn, signUp, signOut, signInWithGoogle, resendConfirmation } from '../services/backend.js';
+import { signIn, signUp, signOut, signInWithGoogle, resendConfirmation, googleEnabled } from '../services/backend.js';
 import { isSupabaseConfigured } from '../config.js';
 import { escapeHtml } from '../lib/format.js';
 
@@ -11,8 +11,10 @@ function signedOutMarkup(notice) {
   return `
     <form class="panel auth" id="auth-form" novalidate>
       ${notice ? `<p class="form-status is-error" id="auth-notice">${escapeHtml(notice)}</p>` : ''}
-      <button class="button button-google" type="button" id="google-signin">${GOOGLE_MARK}<span>Continue with Google</span></button>
-      <p class="auth-divider"><span>or use email</span></p>
+      <div id="google-block" hidden>
+        <button class="button button-google" type="button" id="google-signin">${GOOGLE_MARK}<span>Continue with Google</span></button>
+        <p class="auth-divider"><span>or use email</span></p>
+      </div>
       <label class="field" for="email">
         <span class="field-label">Email</span>
         <input id="email" name="email" type="email" autocomplete="email" autocapitalize="none" spellcheck="false" required />
@@ -78,6 +80,9 @@ export function profilePage() {
       }
 
       const form = root.querySelector('#auth-form');
+      // Show Google only when it is switched on in Supabase.
+      const googleBlock = root.querySelector('#google-block');
+      if (googleBlock) googleEnabled().then((on) => { if (on === true) googleBlock.hidden = false; });
       const google = root.querySelector('#google-signin');
       if (google) {
         google.addEventListener('click', async () => {
