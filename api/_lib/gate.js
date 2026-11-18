@@ -47,6 +47,7 @@ export function gateSignal(signal, entitlement, preview = null) {
     offline: 'The market is closed or price data is unavailable.',
     'no-setup': NO_SETUP_TEXT,
     waiting: 'Price is at a 4H level. Waiting for the 15M confirmation.',
+    'news-pause': 'No new signals 30 minutes before and after high-impact US news.',
   };
   if (!isTrade) {
     return { ...base, access: entitlement.signed_in ? 'limited' : 'anonymous', reason: generic[signal.state] || generic.offline, checks: entitlement.signed_in ? flags(signal.checks) : null };

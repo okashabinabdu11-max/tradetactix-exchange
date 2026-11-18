@@ -5,9 +5,10 @@
 import { session } from '../state/session.js';
 import { getAccessToken } from '../services/backend.js';
 import { escapeHtml } from '../lib/format.js';
+import { t } from '../lib/i18n.js';
 
 const TG = 'https://t.me/Tradetactix1';
-const TG_BUTTON = `<a class="button button-primary tg-button" href="${TG}" target="_blank" rel="noopener">Message @Tradetactix1 on Telegram</a>`;
+const tgButton = () => `<a class="button button-primary tg-button" href="${TG}" target="_blank" rel="noopener">${t('Message @Tradetactix1 on Telegram')}</a>`;
 const WELCOME = 'Hi! I can help with signing up, getting approved, Telegram alerts, and what the dashboard colours mean. What do you need?';
 const SUGGESTIONS = ['How do I get approved?', 'How do I connect Telegram?', 'What does Put BE mean?'];
 const chat = []; // kept while the page is open in this tab
@@ -32,34 +33,34 @@ export function supportPage() {
   return {
     title: 'Support',
     html: `
-      <header class="page-head"><h1>Support</h1><p>Ask the AI assistant. For big problems, message the admin on Telegram: @Tradetactix1.</p></header>
+      <header class="page-head"><h1>${t(`Support`)}</h1><p>${t('Ask the AI assistant. For big problems, message the admin on Telegram: @Tradetactix1.')}</p></header>
       <section class="panel support" aria-label="Chat with the AI assistant">
         <div class="chat-log" id="chat-log" aria-live="polite">
-          ${bubble({ role: 'assistant', content: WELCOME })}
+          ${bubble({ role: 'assistant', content: t(WELCOME) })}
           ${chat.map(bubble).join('')}
         </div>
         <div class="chat-suggest" id="chat-suggest" ${chat.length ? 'hidden' : ''}>
-          ${SUGGESTIONS.map((s) => `<button class="button button-quiet" type="button" data-ask="${escapeHtml(s)}">${escapeHtml(s)}</button>`).join('')}
+          ${SUGGESTIONS.map((s) => `<button class="button button-quiet" type="button" data-ask="${escapeHtml(t(s))}">${escapeHtml(t(s))}</button>`).join('')}
         </div>
         <form class="chat-form" id="chat-form" novalidate>
           <label class="sr-only" for="chat-input">Your question</label>
-          <textarea id="chat-input" rows="2" maxlength="800" placeholder="Type your question…"></textarea>
-          <button class="button button-primary" type="submit">Send</button>
+          <textarea id="chat-input" rows="2" maxlength="800" placeholder="${t('Type your question…')}"></textarea>
+          <button class="button button-primary" type="submit">${t(`Send`)}</button>
         </form>
-        <p class="panel-note">The assistant answers questions about TradeTactix. It cannot see the market, your account or approvals, and it does not give trading advice.</p>
+        <p class="panel-note">${t(`The assistant answers questions about TradeTactix. It cannot see the market, your account or approvals, and it does not give trading advice.`)}</p>
       </section>
 
       <section class="panel" aria-labelledby="human-title">
-        <h2 class="panel-title" id="human-title">Message the admin</h2>
-        <p class="panel-note">For approval, sign-in, Telegram or any big problem. The fastest way is Telegram:</p>
-        <div class="form-actions">${TG_BUTTON}</div>
-        <p class="panel-note">Or send a message from here, and the admin gets it on Telegram:</p>
+        <h2 class="panel-title" id="human-title">${t(`Message the admin`)}</h2>
+        <p class="panel-note">${t('For approval, sign-in, Telegram or any big problem. The fastest way is Telegram:')}</p>
+        <div class="form-actions">${tgButton()}</div>
+        <p class="panel-note">${t('Or send a message from here, and the admin gets it on Telegram:')}</p>
         <form class="human-form" id="human-form" novalidate>
-          <label class="field-label" for="human-contact">Your Telegram username or email</label>
+          <label class="field-label" for="human-contact">${t(`Your Telegram username or email`)}</label>
           <input id="human-contact" type="text" maxlength="100" autocomplete="email" value="${escapeHtml(email)}" placeholder="@yourname or you@example.com" />
-          <label class="field-label" for="human-message">Message</label>
+          <label class="field-label" for="human-message">${t(`Message`)}</label>
           <textarea id="human-message" rows="3" maxlength="800"></textarea>
-          <div class="form-actions"><button class="button button-primary" type="submit">Message the admin</button></div>
+          <div class="form-actions"><button class="button button-primary" type="submit">${t(`Message the admin`)}</button></div>
           <p class="form-status" id="human-status" role="status"></p>
         </form>
       </section>`,
@@ -75,7 +76,7 @@ export function supportPage() {
         if (!q || sendBtn.disabled) return;
         root.querySelector('#chat-suggest').hidden = true;
         chat.push({ role: 'user', content: q });
-        log.insertAdjacentHTML('beforeend', bubble({ role: 'user', content: q }) + '<div class="msg msg-assistant is-typing" id="typing"><p>Typing…</p></div>');
+        log.insertAdjacentHTML('beforeend', bubble({ role: 'user', content: q }) + `<div class="msg msg-assistant is-typing" id="typing"><p>${t('Typing…')}</p></div>`);
         log.scrollTop = log.scrollHeight;
         input.value = ''; sendBtn.disabled = true;
         let reply;
@@ -83,7 +84,7 @@ export function supportPage() {
           const { ok, status, data } = await post({ action: 'ask', messages: chat });
           reply = ok && data.reply ? data.reply
             : status === 429 ? 'You have sent a lot of questions. Please wait a while, or message the admin on Telegram: @Tradetactix1'
-            : 'The AI assistant is not available right now. Please message the admin on Telegram: @Tradetactix1';
+            : t('The AI assistant is not available right now. Please message the admin on Telegram: @Tradetactix1');
           if (ok && data.reply) chat.push({ role: 'assistant', content: data.reply });
         } catch {
           reply = 'The assistant could not be reached. Check your connection, or message the admin on Telegram: @Tradetactix1';

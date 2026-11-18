@@ -22,6 +22,11 @@ Facts you can rely on:
 - Telegram sends the signal, then "Put BE", then "TP Done" or "SL hit".
 - Before each high-impact US news release, members get a news outlook on Telegram in the hour before: whether gold is expected to be bullish, bearish or neutral, with the reason, and what a higher or lower number usually does. It is also on the Analysis page. It is an expectation, not a promise.
 - In the journal, the TP hit, SL hit and Breakeven buttons fill in the exit price.
+- News safety pause: no new signals 30 minutes before and after high-impact US news; the dashboard shows "Paused for high-impact news".
+- Members get a Telegram reminder when their access has 24 hours or less left, with a button to message @Tradetactix1 to renew.
+- Every Sunday evening the weekly results (win rate, TP/SL count, pips) are posted in the Telegram channel @Tradetactix.
+- The site works like an app on iPhone: open it in Safari, tap Share, then Add to Home Screen.
+- The site has an English/Amharic switch (EN / አማ) at the top, next to the dark/light button.
 - The journal (Journal, History, Analytics, Calendar, Discipline) is for approved members to log their own trades by hand. The Journal page shows a running-total chart and their win rate for the last 7 days, last 30 days and all time. Trades are not imported automatically from MT5 yet. The Risk page sizes a position from balance and risk percent.
 - The site never places trades and is not connected to anyone's broker account. Live trading is locked.
 

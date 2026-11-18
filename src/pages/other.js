@@ -3,6 +3,7 @@ import { appConfig, isSupabaseConfigured } from '../config.js';
 import { icon } from '../ui/icons.js';
 import { session } from '../state/session.js';
 import { marketState } from '../services/market.js';
+import { t } from '../lib/i18n.js';
 
 /** Honest holding page for a section that has not been built yet. */
 export function plannedPage(id) {
@@ -28,11 +29,11 @@ export function morePage() {
   return {
     title: 'More',
     html: `
-      <header class="page-head"><h1>All sections</h1></header>
+      <header class="page-head"><h1>${t('All sections')}</h1></header>
       <nav class="panel more-list" aria-label="All sections">
-        <a href="#/home">${icon('grid')}<span>Home</span></a>
+        <a href="#/home">${icon('grid')}<span>${t('Home')}</span></a>
         ${SECTIONS.filter((s) => !s.adminOnly || session.get().entitlement?.is_admin).map((s) => `
-          <a href="#/${s.id}">${icon(s.icon)}<span>${s.label}</span>${s.stage > CURRENT_STAGE ? `<span class="nav-stage">Stage ${s.stage}</span>` : ''}</a>`).join('')}
+          <a href="#/${s.id}">${icon(s.icon)}<span>${t(s.label)}</span>${s.stage > CURRENT_STAGE ? `<span class="nav-stage">Stage ${s.stage}</span>` : ''}</a>`).join('')}
       </nav>`,
   };
 }

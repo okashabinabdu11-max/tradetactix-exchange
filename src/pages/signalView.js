@@ -4,26 +4,30 @@
 
 import { TIMEFRAMES, SIGNAL_STATES, TRADE_STATES } from '../data/plan.js';
 import { price, ratio, escapeHtml } from '../lib/format.js';
+import { t, lang } from '../lib/i18n.js';
+
+// Status reasons are built from fixed sentences: translate each one that is known.
+const translateReason = (r) => (lang() === 'am' ? String(r).split(/(?<=\.)\s+/).map((x) => t(x)).join(' ') : r);
 
 const time = (iso) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
 export const DISCLAIMER = 'A rules-based reading of the plan from closed candles, not financial advice. Check it on the chart before acting. No order is placed.';
 
 function rung(tf, check) {
-  let status = 'No data';
+  let status = t('No data');
   let cls = '';
-  if (tf.optional) { status = 'Not checked automatically. Confirm on the chart.'; }
+  if (tf.optional) { status = t('Not checked automatically. Confirm on the chart.'); }
   else if (check) {
     cls = check.ok === true ? 'is-ok' : check.ok === false ? 'is-fail' : '';
-    const word = check.ok === true ? 'Passed' : check.ok === false ? 'Not yet' : '';
+    const word = check.ok === true ? t('Passed') : check.ok === false ? t('Not yet') : '';
     status = check.text ? `${word ? `${word}: ` : ''}${escapeHtml(check.text)}` : word || 'Read';
-  } else if (check === null) { status = 'Not reached'; }
+  } else if (check === null) { status = t('Not reached'); }
   return `
     <li class="rung ${cls}">
       <span class="rung-tf">${tf.tf}</span>
       <div class="rung-body">
-        <h3>${tf.job}${tf.optional ? ' <span class="tag">Optional</span>' : ''}</h3>
-        <p>${tf.how}</p>
+        <h3>${t(tf.job)}${tf.optional ? ` <span class="tag">${t('Optional')}</span>` : ''}</h3>
+        <p>${t(tf.how)}</p>
       </div>
       <span class="rung-status">${status}</span>
     </li>`;
@@ -63,42 +67,42 @@ function tradeBlock(signal) {
 const signedPips = (n) => (n > 0 ? `+${n}` : n < 0 ? `−${Math.abs(n)}` : '0');
 
 // The signal that was sent, followed until it ends.
-function tradeHead(t) {
-  const st = TRADE_STATES[t.status];
-  const dir = t.direction === 'buy' ? 'BUY' : 'SELL';
-  const label = t.status === 'running' ? `${dir} running` : st.label;
+function tradeHead(tr) {
+  const st = TRADE_STATES[tr.status];
+  const dir = tr.direction === 'buy' ? 'BUY' : 'SELL';
+  const label = tr.status === 'running' ? `${dir} ${t('running')}` : t(st.label);
   let line;
-  if (t.status === 'running') line = t.pips == null ? 'Live price unavailable right now.' : `${signedPips(t.pips)} pips running`;
-  else if (t.status === 'be-moved') line = t.pips == null ? `Stop to ${price(t.entry)}` : `${signedPips(t.pips)} pips running`;
-  else if (t.status === 'tp') line = `${signedPips(t.pips ?? 0)} pips smashed`;
-  else if (t.status === 'sl') line = `${signedPips(t.pips ?? 0)} pips`;
-  else line = '0 pips';
-  const live = t.status === 'running' || t.status === 'be-moved';
+  if (tr.status === 'running') line = tr.pips == null ? t('Live price unavailable right now.') : `${signedPips(tr.pips)} ${t('pips running')}`;
+  else if (tr.status === 'be-moved') line = tr.pips == null ? `Stop → ${price(tr.entry)}` : `${signedPips(tr.pips)} ${t('pips running')}`;
+  else if (tr.status === 'tp') line = `${signedPips(tr.pips ?? 0)} ${t('pips smashed')}`;
+  else if (tr.status === 'sl') line = `${signedPips(tr.pips ?? 0)} ${t('pips')}`;
+  else line = `0 ${t('pips')}`;
+  const live = tr.status === 'running' || tr.status === 'be-moved';
   return `
       <p class="verdict-state is-long tone-${st.tone}" id="verdict-state">${escapeHtml(label)}</p>
       <p class="trade-pips tone-${st.tone}" id="trade-pips">${escapeHtml(line)}</p>
       <dl class="signal-levels">
         <div><dt>Direction</dt><dd>${dir === 'BUY' ? 'Buy' : 'Sell'}</dd></div>
-        <div><dt>Entry</dt><dd>${price(t.entry)}</dd></div>
-        <div><dt>Stop-loss</dt><dd>${t.status === 'be-moved' ? `${price(t.entry)} (BE)` : price(t.stop)}</dd></div>
-        <div><dt>Take-profit</dt><dd>${price(t.target)}</dd></div>
+        <div><dt>Entry</dt><dd>${price(tr.entry)}</dd></div>
+        <div><dt>Stop-loss</dt><dd>${tr.status === 'be-moved' ? `${price(tr.entry)} (BE)` : price(tr.stop)}</dd></div>
+        <div><dt>Take-profit</dt><dd>${price(tr.target)}</dd></div>
       </dl>
-      <p class="verdict-meaning" id="verdict-reason">${t.status === 'be-moved' ? `<strong>Move your stop-loss to breakeven at ${price(t.entry)}.</strong> ` : ''}${live
-        ? `Signal sent at ${time(t.openedAt)}.${t.price != null ? ` Price now ${price(t.price)}; it updates about every 5 minutes.` : ''}`
-        : `Signal sent at ${time(t.openedAt)}, ended at ${time(t.closedAt)}. The page returns to analyzing after 12 hours or when a new signal is sent.`}</p>`;
+      <p class="verdict-meaning" id="verdict-reason">${tr.status === 'be-moved' ? `<strong>${t('Move your stop-loss to breakeven at')} ${price(tr.entry)}.</strong> ` : ''}${live
+        ? `Signal sent at ${time(tr.openedAt)}.${tr.price != null ? ` Price now ${price(tr.price)}; it updates about every 5 minutes.` : ''}`
+        : `Signal sent at ${time(tr.openedAt)}, ended at ${time(tr.closedAt)}. The page returns to analyzing after 12 hours or when a new signal is sent.`}</p>`;
 }
 
 export function verdictMarkup(signal) {
   const loading = !signal;
   const state = SIGNAL_STATES.find((s) => s.id === (signal?.state || 'offline')) || SIGNAL_STATES[0];
-  const label = loading ? 'Checking' : state.label;
+  const label = loading ? t('Checking') : t(state.label);
   // For "no setup" the headline already carries the fixed sentence; show only the detail under it.
-  let reason = loading ? 'Reading the 4H, 1H and 15M candles…' : (signal.reason || state.meaning);
+  let reason = loading ? t('Reading the 4H, 1H and 15M candles…') : (signal.reason || state.meaning);
   if (!loading && signal.state === 'no-setup') reason = reason.replace(state.label, '').replace(/^[\s.—-]+/, '').trim() || state.meaning;
   // A running or just-finished signal takes the headline, unless the engine has a newer one.
   const fresh = signal && (signal.state === 'buy' || signal.state === 'sell');
-  const t = signal?.trade;
-  const showTrade = !!t && TRADE_STATES[t.status] && (!fresh || t.status === 'running' || t.status === 'be-moved');
+  const trd = signal?.trade;
+  const showTrade = !!trd && TRADE_STATES[trd.status] && (!fresh || trd.status === 'running' || trd.status === 'be-moved');
   const checks = signal?.checks || {};
   const keys = ['h4', 'h1', 'm15', null];
   const previews = signal?.previews && signal.previews.limit !== null && signal.previews.used !== null
@@ -106,16 +110,16 @@ export function verdictMarkup(signal) {
 
   return `
     <div class="verdict-head">
-      <p class="panel-kicker">Signal engine</p>
+      <p class="panel-kicker">${t('Signal engine')}</p>
       ${showTrade ? tradeHead(signal.trade) : `
       <p class="verdict-state ${label.length > 8 ? 'is-long' : ''} ${label.length > 20 ? 'is-sentence' : ''} tone-${loading ? 'yellow' : state.tone}" id="verdict-state">${escapeHtml(label)}</p>
-      <p class="verdict-meaning" id="verdict-reason">${escapeHtml(reason)}</p>
+      <p class="verdict-meaning" id="verdict-reason">${escapeHtml(translateReason(reason))}</p>
       ${loading ? '' : tradeBlock(signal)}`}
     </div>
     <ol class="ladder" aria-label="Timeframe checks, from highest to lowest">
       ${TIMEFRAMES.map((tf, i) => rung(tf, loading || !signal.checks ? undefined : keys[i] ? checks[keys[i]] : undefined)).join('')}
     </ol>
-    <p class="verdict-foot">${previews}${signal?.readAt ? `Read at ${time(signal.readAt)}. ` : ''}${DISCLAIMER}</p>`;
+    <p class="verdict-foot">${previews}${signal?.readAt ? `Read at ${time(signal.readAt)}. ` : ''}${t(DISCLAIMER)}</p>`;
 }
 
 export function upgradePanel(what) {

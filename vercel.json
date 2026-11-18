@@ -1,5 +1,18 @@
 {
   "functions": {
-    "api/alerts-run.js": { "maxDuration": 60 }
-  }
+    "api/alerts-run.js": {
+      "maxDuration": 60
+    }
+  },
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    }
+  ]
 }

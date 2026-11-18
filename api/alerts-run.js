@@ -3,6 +3,7 @@
 //   2. Every open signal is followed: "Put BE", "TP Done", "SL hit",
 //      "Closed at breakeven" or "no result after 48 hours", each sent once.
 //   3. Before high-impact US news: an expectation for gold, sent once in the hour before.
+//   4. Weekly results to the channel, access-ending reminders, the daily admin report.
 // Members whose access has ended receive nothing.
 
 import { originOf, readMarket } from './_lib/engine.js';
@@ -10,6 +11,7 @@ import { signalKey } from './_lib/gate.js';
 import { sameSecret, telegram, serverRpc, alertMessage } from './_lib/telegram.js';
 import { nextEvent, eventMessage } from './_lib/tracker.js';
 import { runNews } from './_lib/newsRun.js';
+import { runReports } from './_lib/reports.js';
 
 const send = (res, status, body) => {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -47,7 +49,8 @@ export default async function handler(req, res) {
   } catch (err) {
     // Price data unavailable (for example the weekend): still look after the news.
     const news = await runNews({ origin, broadcast }).catch((e) => ({ error: String(e?.message || e).slice(0, 120) }));
-    return send(res, 200, { state: 'offline', reason: err?.code || 'unavailable', news });
+    const reports = await runReports().catch((e) => ({ error: String(e?.message || e).slice(0, 120) }));
+    return send(res, 200, { state: 'offline', reason: err?.code || 'unavailable', news, reports });
   }
   const { signal, m15 } = market;
   const out = { state: signal.state, sent: 0, updates: [] };
@@ -87,5 +90,7 @@ export default async function handler(req, res) {
   }
   // 3. News (independent of the signal steps above)
   out.news = await runNews({ origin, broadcast }).catch((e) => ({ error: String(e?.message || e).slice(0, 120) }));
+  // 4. Scheduled posts
+  out.reports = await runReports().catch((e) => ({ error: String(e?.message || e).slice(0, 120) }));
   return send(res, out.error ? 502 : 200, out);
 }

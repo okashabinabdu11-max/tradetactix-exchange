@@ -5,6 +5,7 @@ import { tradeMetrics, summarize, dailyResults, monthGrid, validateTrade, localD
 import { MIN_REWARD_TO_RISK } from '../lib/risk.js';
 import { usd, price, ratio, escapeHtml } from '../lib/format.js';
 import { STAGE_OF } from '../data/plan.js';
+import { t as tr } from '../lib/i18n.js';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -50,7 +51,7 @@ export function curveSvg(points) {
 export function performanceMarkup(trades, minRR) {
   const curve = equityCurve(trades);
   if (!curve.points.length) {
-    return `<section class="panel perf"><h2 class="panel-title">Performance</h2><p class="result-empty">Your chart and win rate appear here after your first closed trade.</p></section>`;
+    return `<section class="panel perf"><h2 class="panel-title">${tr('Performance')}</h2><p class="result-empty">${tr('Your chart and win rate appear here after your first closed trade.')}</p></section>`;
   }
   const last = curve.points[curve.points.length - 1].total;
   const windows = winRateWindows(trades, minRR);
@@ -58,25 +59,25 @@ export function performanceMarkup(trades, minRR) {
     const rate = w.winRate === null ? null : Math.round(w.winRate);
     return `
       <div class="wr-card">
-        <p class="wr-label">${w.label}</p>
-        ${rate === null ? '<p class="wr-rate is-empty">—</p><p class="wr-sub">No closed trades</p>' : `
+        <p class="wr-label">${tr(w.label)}</p>
+        ${rate === null ? `<p class="wr-rate is-empty">—</p><p class="wr-sub">${tr('No closed trades')}</p>` : `
           <p class="wr-rate">${rate}%</p>
           <div class="wr-bar" role="img" aria-label="${w.wins} won, ${w.losses} lost${w.breakeven ? `, ${w.breakeven} flat` : ''}">
             <span class="wr-win" style="width:${(w.wins / w.closed) * 100}%"></span><span class="wr-flat" style="width:${(w.breakeven / w.closed) * 100}%"></span><span class="wr-loss" style="width:${(w.losses / w.closed) * 100}%"></span>
           </div>
-          <p class="wr-sub">${w.wins} won · ${w.losses} lost${w.breakeven ? ` · ${w.breakeven} flat` : ''}</p>
+          <p class="wr-sub">${w.wins} ${tr('won')} · ${w.losses} ${tr('lost')}${w.breakeven ? ` · ${w.breakeven} ${tr('flat')}` : ''}</p>
           <p class="wr-sub ${tone(w.netPnl)}">${signed(w.netPnl)}</p>`}
       </div>`;
   };
   return `
     <section class="panel perf" aria-labelledby="perf-title">
-      <h2 class="panel-title" id="perf-title">Performance</h2>
-      <p class="perf-total">Running total <strong class="${tone(last)}">${signed(last)}</strong></p>
+      <h2 class="panel-title" id="perf-title">${tr('Performance')}</h2>
+      <p class="perf-total">${tr('Running total')} <strong class="${tone(last)}">${signed(last)}</strong></p>
       ${curveSvg(curve.points)}
-      <p class="panel-note">Each point is a closed trade. The dashed line is $0. Deepest fall from a peak: ${usd(curve.maxDrawdown)}.</p>
-      <h3 class="perf-sub">Win rate</h3>
+      <p class="panel-note">${tr('Each point is a closed trade. The dashed line is $0. Deepest fall from a peak:')} ${usd(curve.maxDrawdown)}.</p>
+      <h3 class="perf-sub">${tr('Win rate')}</h3>
       <div class="wr-grid">${windows.map(card).join('')}</div>
-      <a class="text-link" href="#/analytics">Full analytics</a>
+      <a class="text-link" href="#/analytics">${tr('Full analytics')}</a>
     </section>`;
 }
 
@@ -168,9 +169,9 @@ function formMarkup(trade) {
         <legend class="field-label">Closing the trade</legend>
         <p class="field-hint">Leave these empty while the trade is still open. Or tap how it ended:</p>
         <div class="close-quick" role="group" aria-label="How the trade ended">
-          <button class="button button-quiet close-tp" type="button" data-action="close-tp">TP hit</button>
-          <button class="button button-quiet close-sl" type="button" data-action="close-sl">SL hit</button>
-          <button class="button button-quiet close-be" type="button" data-action="close-be">Breakeven</button>
+          <button class="button button-quiet close-tp" type="button" data-action="close-tp">${tr('TP hit')}</button>
+          <button class="button button-quiet close-sl" type="button" data-action="close-sl">${tr('SL hit')}</button>
+          <button class="button button-quiet close-be" type="button" data-action="close-be">${tr('Breakeven')}</button>
         </div>
         <p class="field-hint" id="close-quick-status" role="status"></p>
         <div class="field-row field-row-3">

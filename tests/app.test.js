@@ -47,7 +47,7 @@ test('router falls back to the dashboard for unknown routes', () => {
 
 test('plan data is consistent', () => {
   assert.deepEqual(TIMEFRAMES.map((t) => t.tf), ['4H', '1H', '15M', '5M']);
-  assert.deepEqual(SIGNAL_STATES.map((s) => s.id), ['offline', 'no-setup', 'locked', 'waiting', 'buy', 'sell']);
+  assert.deepEqual(SIGNAL_STATES.map((s) => s.id), ['offline', 'no-setup', 'locked', 'news-pause', 'waiting', 'buy', 'sell']);
   for (const s of SECTIONS) {
     assert.ok(STAGES.some((st) => st.n === s.stage), `${s.id} has a valid stage`);
     if (s.stage > CURRENT_STAGE) assert.ok(s.summary, `${s.id} explains what is planned`);

@@ -848,3 +848,17 @@ body.is-home .main { padding-bottom: 32px; }
 .badge-tp { color: var(--t-green); border-color: var(--t-green); }
 .badge-sl { color: var(--t-red); border-color: var(--t-red); }
 .badge-be { color: var(--t-blue); border-color: var(--t-blue); }
+.net-hint .link-button { display: inline-block; min-height: 36px; padding: 6px 8px; font-size: 13.5px; }
+
+/* ---------- Homepage: app card ---------- */
+.home-app { display: flex; gap: 14px; align-items: flex-start; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 18px; }
+.home-app img { border-radius: 14px; flex: none; }
+.home-app h2 { font-size: 18px; font-weight: 700; }
+.home-app p { color: var(--muted); font-size: 15px; margin: 4px 0 8px; }
+.home-app .button { margin-top: 4px; }
+@media (min-width: 960px) { .home-app { grid-column: 1; } }
+
+/* ---------- Language switch ---------- */
+.lang-toggle { display: inline-grid; place-items: center; flex: none; min-width: 38px; height: 38px; padding: 0 8px; border-radius: 999px; background: var(--raised); color: var(--text); border: 1px solid var(--line); cursor: pointer; font: inherit; font-size: 13px; font-weight: 700; }
+.lang-toggle:hover { border-color: var(--muted); }
+:root:lang(am) body { line-height: 1.6; }

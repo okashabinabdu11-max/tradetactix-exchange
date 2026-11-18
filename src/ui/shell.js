@@ -2,6 +2,7 @@ import { themeToggle } from './theme.js';
 import { SECTIONS, CURRENT_STAGE } from '../data/plan.js';
 import { appConfig } from '../config.js';
 import { icon } from './icons.js';
+import { t, langToggle } from '../lib/i18n.js';
 
 const MOBILE_TABS = ['dashboard', 'signals', 'risk', 'journal'];
 
@@ -13,14 +14,14 @@ const brand = `
 
 function navLink(section) {
   const planned = section.stage > CURRENT_STAGE ? `<span class="nav-stage">Stage ${section.stage}</span>` : '';
-  return `<a class="nav-link" href="#/${section.id}" data-nav="${section.id}" ${section.adminOnly ? 'data-admin hidden' : ''}>${icon(section.icon)}<span>${section.label}</span>${planned}</a>`;
+  return `<a class="nav-link" href="#/${section.id}" data-nav="${section.id}" ${section.adminOnly ? 'data-admin hidden' : ''}>${icon(section.icon)}<span>${t(section.label)}</span>${planned}</a>`;
 }
 
 export function renderShell(root) {
   const tabs = MOBILE_TABS.map((id) => SECTIONS.find((s) => s.id === id));
   const tradingChip = appConfig.liveTradingEnabled
     ? '<span class="chip chip-sell">Live trading on</span>'
-    : `<a class="chip chip-lock" href="#/system" title="Live trading is locked">${icon('lock', 14)}<span>Live trading locked</span></a>`;
+    : `<a class="chip chip-lock" href="#/system" title="Live trading is locked">${icon('lock', 14)}<span>${t('Live trading locked')}</span></a>`;
 
   root.innerHTML = `
     <a class="skip-link" href="#main">Skip to content</a>
@@ -33,13 +34,14 @@ export function renderShell(root) {
         <div class="topbar-brand">${brand}</div>
         <div class="topbar-instrument"><strong>XAUUSD</strong><span>Gold vs US dollar</span></div>
         ${tradingChip}
+        ${langToggle()}
         ${themeToggle()}
       </header>
       <main id="main" class="main" tabindex="-1"></main>
     </div>
     <nav class="tabbar" aria-label="Main sections">
-      ${tabs.map((s) => `<a class="tab" href="#/${s.id}" data-nav="${s.id}">${icon(s.icon, 22)}<span>${s.label}</span></a>`).join('')}
-      <a class="tab" href="#/more" data-nav="more">${icon('more', 22)}<span>More</span></a>
+      ${tabs.map((s) => `<a class="tab" href="#/${s.id}" data-nav="${s.id}">${icon(s.icon, 22)}<span>${t(s.label)}</span></a>`).join('')}
+      <a class="tab" href="#/more" data-nav="more">${icon('more', 22)}<span>${t('More')}</span></a>
     </nav>`;
 
   return root.querySelector('#main');

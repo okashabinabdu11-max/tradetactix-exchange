@@ -18,6 +18,7 @@ import { historyPage, analyticsPage, calendarPage, disciplinePage } from './page
 import { session, setSession } from './state/session.js';
 import { initBackend } from './services/backend.js';
 import { initTheme } from './ui/theme.js';
+import { initLang } from './lib/i18n.js';
 
 const builtPages = {
   dashboard: dashboardPage,
@@ -42,6 +43,9 @@ const routeIds = [...SECTIONS.map((s) => s.id), 'more', 'home'];
 const OPEN_ROUTES = ['plans', 'profile', 'more', 'admin', 'support'];
 
 initTheme();
+initLang();
+// Remember the browser's install offer so the homepage can show an Install button.
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); window.__installPrompt = e; document.querySelector('#install-app')?.removeAttribute('hidden'); });
 const root = document.getElementById('app');
 const main = renderShell(root);
 let cleanup = null;

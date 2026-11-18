@@ -2,6 +2,23 @@
 // Shared by /api/signal (per-user view) and /api/alerts-run (Telegram alerts).
 
 import { evaluate } from '../../src/lib/signals.js';
+import { serverRpc } from './telegram.js';
+
+const ETH = (iso) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Addis_Ababa' });
+
+/**
+ * News safety pause: a BUY or SELL found within 30 minutes before or after a
+ * high-impact US release is not sent. If the news table cannot be read, the
+ * signal goes ahead (the pause never invents a reason).
+ */
+export async function applyNewsPause(signal, now = new Date()) {
+  if (signal.state !== 'buy' && signal.state !== 'sell') return signal;
+  let near = null;
+  try { near = ((await serverRpc('alerts_news_near', { p_at: now.toISOString() })) || [])[0] || null; } catch { return signal; }
+  if (!near) return signal;
+  const { entry, stop, target, rr, direction, confirmedAt, targetBasis, ...rest } = signal;
+  return { ...rest, state: 'news-pause', pausedFor: { title: near.title, startsAt: near.starts_at }, reason: `High-impact news: ${near.title} at ${ETH(near.starts_at)} (Ethiopia time). No new signals 30 minutes before and after it.` };
+}
 
 export function originOf(req) {
   const host = req.headers?.['x-forwarded-host'] || req.headers?.host;
@@ -25,5 +42,5 @@ export async function readMarket(origin, minRewardToRisk = 3) {
     return body.candles;
   };
   const [h4, h1, m15] = await Promise.all([load('4h'), load('1h'), load('15min')]);
-  return { signal: evaluate({ h4, h1, m15, minRewardToRisk }), m15 };
+  return { signal: await applyNewsPause(evaluate({ h4, h1, m15, minRewardToRisk })), m15 };
 }

@@ -8,6 +8,7 @@ import { escapeHtml } from '../lib/format.js';
 import { profilePage, signedOutMarkup } from './profile.js';
 import { getSignalStats } from '../services/backend.js';
 import { themeToggle } from '../ui/theme.js';
+import { t, langToggle } from '../lib/i18n.js';
 
 const CHANNEL = 'https://t.me/Tradetactix';
 
@@ -18,10 +19,10 @@ function statCard(title, s) {
   const total = decided + s.breakeven;
   return `
     <div class="stat-card">
-      <h3>${title}</h3>
+      <h3>${t(title)}</h3>
       ${total === 0
-        ? '<p class="stat-rate is-empty">—</p><p class="stat-line">No signals closed yet in this period.</p>'
-        : `<p class="stat-rate">${decided ? `${Math.round((s.wins / decided) * 100)}%` : '—'}<span>win rate</span></p>
+        ? `<p class="stat-rate is-empty">—</p><p class="stat-line">${t('No signals closed yet in this period.')}</p>`
+        : `<p class="stat-rate">${decided ? `${Math.round((s.wins / decided) * 100)}%` : '—'}<span>${t('win rate')}</span></p>
            <p class="stat-line"><span class="tone-green">${s.wins} TP</span> · <span class="tone-red">${s.losses} SL</span>${s.breakeven ? ` · <span class="tone-blue">${s.breakeven} BE</span>` : ''}</p>
            <p class="stat-line">${pips > 0 ? '+' : pips < 0 ? '−' : ''}${Math.abs(pips)} pips</p>`}
     </div>`;
@@ -51,20 +52,20 @@ export function homePage() {
   else if (user) {
     account = `
       <section class="panel auth home-signed-in">
-        <p class="field-label">Signed in as</p>
+        <p class="field-label">${t(`Signed in as`)}</p>
         <p class="auth-email">${escapeHtml(user.email || 'your account')}</p>
-        <p class="panel-note">${approved ? 'Your signal access is active.' : 'Your account is waiting for signal access. Send your Telegram username on the Plans page.'}</p>
+        <p class="panel-note">${approved ? t('Your signal access is active.') : t('Your account is waiting for signal access. Send your Telegram username on the Plans page.')}</p>
         <div class="form-actions">
-          <a class="button button-primary" href="#/dashboard">Open dashboard</a>
-          ${approved ? '' : '<a class="button button-quiet" href="#/plans">Request access</a>'}
+          <a class="button button-primary" href="#/dashboard">${t(`Open dashboard`)}</a>
+          ${approved ? '' : '<a class="button button-quiet" href="#/plans">${t(`Request access`)}</a>'}
         </div>
       </section>`;
   } else account = signedOutMarkup(authNotice);
 
   const authButtons = user
-    ? '<a class="button button-primary" href="#/dashboard" id="home-dashboard">Dashboard</a>'
-    : `<button class="button button-primary" type="button" data-auth="open">Open Account</button>
-       <a class="button button-quiet" href="#/dashboard" id="home-dashboard">Dashboard</a>`;
+    ? '<a class="button button-primary" href="#/dashboard" id="home-dashboard">${t(`Dashboard`)}</a>'
+    : `<button class="button button-primary" type="button" data-auth="open">${t(`Open Account`)}</button>
+       <a class="button button-quiet" href="#/dashboard" id="home-dashboard">${t(`Dashboard`)}</a>`;
 
   return {
     title: 'Gold signals',
@@ -72,55 +73,65 @@ export function homePage() {
       <header class="home-bar">
         <a class="brand" href="#/home" aria-label="TradeTactix home"><span class="brand-mark" aria-hidden="true">T</span><span class="brand-name">TradeTactix</span></a>
         <nav class="home-bar-links" aria-label="Account">
+          ${langToggle()}
           ${themeToggle()}
-          ${user ? '<a class="button button-primary" href="#/dashboard">Dashboard</a>' : '<button class="button button-primary" type="button" data-auth="open">Open Account</button>'}
+          ${user ? `<a class="button button-primary" href="#/dashboard">${t('Dashboard')}</a>` : `<button class="button button-primary" type="button" data-auth="open">${t('Open Account')}</button>`}
         </nav>
       </header>
       <div class="home">
         <section class="home-hero">
-          <p class="home-pair">XAUUSD gold</p>
-          <h1>Gold signals, sent straight to your Telegram.</h1>
-          <p class="home-lede">TradeTactix reads gold on the 4H, 1H and 15M charts and sends a signal only when every step of the plan lines up, with entry, stop-loss and take-profit.</p>
+          <p class="home-pair">${t(`XAUUSD gold`)}</p>
+          <h1>${t(`Gold signals, sent straight to your Telegram.`)}</h1>
+          <p class="home-lede">${t(`TradeTactix reads gold on the 4H, 1H and 15M charts and sends a signal only when every step of the plan lines up, with entry, stop-loss and take-profit.`)}</p>
           <div class="form-actions home-cta">${authButtons}</div>
           <ul class="home-stages" aria-label="What the signal screen shows">
-            ${STAGES.map(([tone, text]) => `<li class="tone-${tone}"><span class="home-dot"></span>${text}</li>`).join('')}
+            ${STAGES.map(([tone, text]) => `<li class="tone-${tone}"><span class="home-dot"></span>${t(text)}</li>`).join('')}
           </ul>
         </section>
 
         <section class="home-stats" aria-labelledby="stats-title">
-          <h2 id="stats-title">Signal results</h2>
-          <div class="stat-grid" id="stat-grid"><p class="result-empty">Loading results…</p></div>
-          <p class="home-note">Counted automatically from every signal the bot sent, when it hit TP, SL or breakeven. Past results do not guarantee future results.</p>
+          <h2 id="stats-title">${t(`Signal results`)}</h2>
+          <div class="stat-grid" id="stat-grid"><p class="result-empty">${t(`Loading results…`)}</p></div>
+          <p class="home-note">${t(`Counted automatically from every signal the bot sent, when it hit TP, SL or breakeven. Past results do not guarantee future results.`)}</p>
+        </section>
+
+        <section class="home-app" id="home-app">
+          <img src="/icons/icon-192.png" alt="" width="56" height="56" />
+          <div>
+            <h2>${t(`Get the TradeTactix app`)}</h2>
+            <p>${t('On iPhone: open this site in Safari, tap <strong>Share</strong> <span aria-hidden="true">⬆️</span>, then <strong>Add to Home Screen</strong>. It opens full screen like an app.')}</p>
+            <button class="button button-primary" type="button" id="install-app" hidden>${t(`Install app`)}</button>
+          </div>
         </section>
 
         <section class="home-channel">
-          <div><h2>Join our Telegram channel</h2><p>News, updates and results from TradeTactix: <strong>@Tradetactix</strong></p></div>
-          <a class="button button-primary" href="${CHANNEL}" target="_blank" rel="noopener" id="channel-link">Join @Tradetactix</a>
+          <div><h2>${t(`Join our Telegram channel`)}</h2><p>${t('News, updates and results from TradeTactix:')} <strong>@Tradetactix</strong></p></div>
+          <a class="button button-primary" href="${CHANNEL}" target="_blank" rel="noopener" id="channel-link">${t(`Join @Tradetactix`)}</a>
         </section>
 
         <section class="home-auth" id="home-auth" aria-labelledby="home-auth-title">
-          <h2 id="home-auth-title">${user ? 'Your account' : 'Open your account'}</h2>
+          <h2 id="home-auth-title">${user ? t('Your account') : t('Open your account')}</h2>
           ${account}
         </section>
 
         <section class="home-points">
-          <div><h3>Full trade plan</h3><p>Every signal has entry, stop-loss and take-profit, aims for at least 1:3, and keeps the stop-loss tight.</p></div>
-          <div><h3>Updates while it runs</h3><p>Telegram tells you when to put your stop at breakeven, and when the trade hits TP or SL, with the pips.</p></div>
-          <div><h3>Members only</h3><p>Access is approved by the admin for a set time and stops by itself when it ends.</p></div>
+          <div><h3>${t(`Full trade plan`)}</h3><p>${t(`Every signal has entry, stop-loss and take-profit, aims for at least 1:3, and keeps the stop-loss tight.`)}</p></div>
+          <div><h3>${t(`Updates while it runs`)}</h3><p>${t(`Telegram tells you when to put your stop at breakeven, and when the trade hits TP or SL, with the pips.`)}</p></div>
+          <div><h3>${t(`Members only`)}</h3><p>${t(`Access is approved by the admin for a set time and stops by itself when it ends.`)}</p></div>
         </section>
 
         <section class="home-join">
-          <h2>How to join</h2>
+          <h2>${t(`How to join`)}</h2>
           <ol>
-            <li><span><strong>Open your account</strong> with your email on this page.</span></li>
-            <li><span><strong>Send your Telegram username</strong> on the Plans page.</span></li>
-            <li><span><strong>Get approved</strong> and signals start arriving.</span></li>
+            <li><span>${t('<strong>Open your account</strong> with your email on this page.')}</span></li>
+            <li><span>${t('<strong>Send your Telegram username</strong> on the Plans page.')}</span></li>
+            <li><span>${t('<strong>Get approved</strong> and signals start arriving.')}</span></li>
           </ol>
         </section>
 
-        <section class="home-help"><h2>Questions?</h2><p>Ask the AI assistant, or message the admin on Telegram at @Tradetactix1.</p><div class="form-actions"><a class="button button-quiet" href="#/support">Contact support</a><a class="button button-quiet" href="https://t.me/Tradetactix1" target="_blank" rel="noopener">Telegram @Tradetactix1</a></div></section>
+        <section class="home-help"><h2>${t(`Questions?`)}</h2><p>${t('Ask the AI assistant, or message the admin on Telegram at @Tradetactix1.')}</p><div class="form-actions"><a class="button button-quiet" href="#/support">${t(`Contact support`)}</a><a class="button button-quiet" href="https://t.me/Tradetactix1" target="_blank" rel="noopener">Telegram @Tradetactix1</a></div></section>
 
-        <p class="home-foot">Signals are a rules-based reading of the chart, not financial advice. Trading gold carries a real risk of loss. Live trading is not connected.</p>
+        <p class="home-foot">${t(`Signals are a rules-based reading of the chart, not financial advice. Trading gold carries a real risk of loss. Live trading is not connected.`)}</p>
       </div>`,
     mount(root) {
       // Open Account buttons jump to the form.
@@ -133,10 +144,20 @@ export function homePage() {
       const onClick = (e) => { const b = e.target.closest('[data-auth]'); if (b) choose(b.dataset.auth); };
       root.addEventListener('click', onClick);
       let alive = true;
+      // Hide the app card when already opened from the home screen; offer the
+      // install button where the browser supports it (Android, desktop Chrome).
+      const standalone = window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true;
+      if (standalone) root.querySelector('#home-app')?.remove();
+      const installBtn = root.querySelector('#install-app');
+      if (installBtn && window.__installPrompt) installBtn.hidden = false;
+      installBtn?.addEventListener('click', async () => {
+        const ev = window.__installPrompt; if (!ev) return;
+        ev.prompt(); await ev.userChoice.catch(() => null); window.__installPrompt = null; installBtn.hidden = true;
+      });
       getSignalStats().then((res) => {
         const grid = root.querySelector('#stat-grid');
         if (!alive || !grid) return;
-        grid.innerHTML = res.ok ? statsMarkup(res.data) : '<p class="result-empty">Results are not available right now.</p>';
+        grid.innerHTML = res.ok ? statsMarkup(res.data) : `<p class="result-empty">${t('Results are not available right now.')}</p>`;
       });
       const formCleanup = root.querySelector('#auth-form') ? profilePage().mount(root) : null;
       return () => { alive = false; root.removeEventListener('click', onClick); if (typeof formCleanup === 'function') formCleanup(); };

@@ -3,6 +3,7 @@ import { openAccount, signOut, signInWithGoogle, resendConfirmation, googleEnabl
 import { passwordChecks } from '../lib/password.js';
 import { isSupabaseConfigured } from '../config.js';
 import { escapeHtml } from '../lib/format.js';
+import { t } from '../lib/i18n.js';
 
 const MIN_PASSWORD = 8;
 
@@ -17,38 +18,38 @@ export function signedOutMarkup(notice) {
         <p class="auth-divider"><span>or use email</span></p>
       </div>
       <label class="field" for="email">
-        <span class="field-label">Email</span>
+        <span class="field-label">${t(`Email`)}</span>
         <input id="email" name="email" type="email" autocomplete="email" autocapitalize="none" spellcheck="false" required />
       </label>
       <div class="field">
-        <label class="field-label" for="password">Password</label>
+        <label class="field-label" for="password">${t(`Password`)}</label>
         <div class="password-wrap">
           <input id="password" name="password" type="password" autocomplete="current-password" minlength="${MIN_PASSWORD}" required />
-          <button class="password-toggle" type="button" id="password-toggle" aria-controls="password" aria-pressed="false">Show</button>
+          <button class="password-toggle" type="button" id="password-toggle" aria-controls="password" aria-pressed="false">${t(`Show`)}</button>
         </div>
-        <p class="field-hint">New here? Your password needs:</p>
+        <p class="field-hint">${t(`New here? Your password needs:`)}</p>
         <ul class="pw-rules" id="pw-rules" aria-live="polite">
-          ${passwordChecks('').map((c) => `<li data-rule="${c.id}">${c.text}</li>`).join('')}
+          ${passwordChecks('').map((c) => `<li data-rule="${c.id}">${t(c.text)}</li>`).join('')}
         </ul>
       </div>
       <div class="form-actions">
-        <button class="button button-primary" type="submit" name="intent" value="signin">Open Account</button>
+        <button class="button button-primary" type="submit" name="intent" value="signin">${t(`Open Account`)}</button>
       </div>
-      <p class="field-hint">Already have an account? The same button opens it.</p>
+      <p class="field-hint">${t(`Already have an account? The same button opens it.`)}</p>
       <p id="auth-status" class="form-status" role="status"></p>
       <button class="link-button" type="button" id="resend" hidden>Send the confirmation email again</button>
-      <p class="panel-note">Your account stores your risk limits now, and your journal and trade history in later stages. Only you can read them.</p>
+      <p class="panel-note">${t(`Your account stores your risk limits now, and your journal and trade history in later stages. Only you can read them.`)}</p>
     </form>`;
 }
 
 function signedInMarkup(user) {
   return `
     <section class="panel auth">
-      <p class="field-label">Signed in as</p>
+      <p class="field-label">${t(`Signed in as`)}</p>
       <p class="auth-email">${escapeHtml(user.email || 'your account')}</p>
       <div class="form-actions">
         <a class="button button-quiet" href="#/risk">Edit risk limits</a>
-        <button class="button button-quiet" type="button" id="signout">Sign out</button>
+        <button class="button button-quiet" type="button" id="signout">${t(`Sign out`)}</button>
       </div>
       <p id="auth-status" class="form-status" role="status"></p>
     </section>`;
@@ -65,8 +66,8 @@ export function profilePage() {
     title: 'Profile',
     html: `
       <header class="page-head">
-        <h1>Profile</h1>
-        <p>${user ? 'Your TradeTactix account.' : 'Enter your email and password, then tap Open Account.'}</p>
+        <h1>${t(`Profile`)}</h1>
+        <p>${user ? 'Your TradeTactix account.' : t('Enter your email and password, then tap Open Account.')}</p>
       </header>
       ${body}`,
     mount(root) {
@@ -117,7 +118,7 @@ export function profilePage() {
         toggle.addEventListener('click', () => {
           const show = pw.type === 'password';
           pw.type = show ? 'text' : 'password';
-          toggle.textContent = show ? 'Hide' : 'Show';
+          toggle.textContent = show ? t('Hide') : t('Show');
           toggle.setAttribute('aria-pressed', String(show));
           toggle.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
         });
@@ -130,16 +131,16 @@ export function profilePage() {
           e.preventDefault();
           const email = form.elements.email.value.trim();
           const password = form.elements.password.value;
-          if (!/^\S+@\S+\.\S+$/.test(email)) { setStatus('Enter a valid email address.', 'is-error'); return; }
-          if (password.length < MIN_PASSWORD) { setStatus(`Password must be at least ${MIN_PASSWORD} characters.`, 'is-error'); return; }
+          if (!/^\S+@\S+\.\S+$/.test(email)) { setStatus(t('Enter a valid email address.'), 'is-error'); return; }
+          if (password.length < MIN_PASSWORD) { setStatus(t('Password must be at least 8 characters.'), 'is-error'); return; }
 
           const buttons = form.querySelectorAll('button');
           buttons.forEach((b) => { b.disabled = true; });
-          setStatus('Opening your account…');
+          setStatus(t('Opening your account…'));
           const res = await openAccount(email, password);
           buttons.forEach((b) => { b.disabled = false; });
 
-          if (!res.ok) { setStatus(res.message, 'is-error'); if (res.code === 'weak') root.querySelector('#pw-rules')?.classList.add('is-attention'); return; }
+          if (!res.ok) { setStatus(t(res.message), 'is-error'); if (res.code === 'weak') root.querySelector('#pw-rules')?.classList.add('is-attention'); return; }
           if (res.needsConfirmation) {
             form.elements.password.value = '';
             setStatus(`Account opened. Open the confirmation link sent to ${email}, then tap Open Account again. Check your spam folder too.`, 'is-ok');
