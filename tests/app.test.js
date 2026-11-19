@@ -61,16 +61,12 @@ test('formatters', () => {
   assert.equal(escapeHtml('<b>"x"</b>'), '&lt;b&gt;&quot;x&quot;&lt;/b&gt;');
 });
 
-import { CHART_VIEWS, widgetConfig, resolveColors, allowedStudies, INDICATORS } from '../src/lib/chartConfig.js';
+import { CHART_VIEWS, resolveColors, allowedStudies, INDICATORS, cleanSymbol, ALL_SYMBOLS, pipSize, decimals } from '../src/lib/chartConfig.js';
 
-test('chart: free gets drawing tools and only free indicators; Chart Pro gets everything', () => {
+test('chart: free keeps only free indicators; Chart Pro gets every one', () => {
   const all = INDICATORS.map((i) => i.id);
-  const free = widgetConfig(CHART_VIEWS[0], { pro: false, studies: all });
-  assert.equal(free.hide_side_toolbar, false); assert.equal(free.hide_top_toolbar, true); // drawing tools free
-  assert.deepEqual(free.studies, INDICATORS.filter((i) => i.free).map((i) => i.id));
-  const pro = widgetConfig(CHART_VIEWS[0], { pro: true, studies: all });
-  assert.equal(pro.hide_side_toolbar, false); assert.equal(pro.hide_top_toolbar, false);
-  assert.equal(pro.studies.length, all.length);
+  assert.deepEqual(allowedStudies(all, false), INDICATORS.filter((i) => i.free).map((i) => i.id));
+  assert.deepEqual(allowedStudies(all, true), all);
   assert.deepEqual(allowedStudies(['made-up'], true), []);
 });
 
@@ -82,23 +78,21 @@ test('chart colours: presets, custom hex only, otherwise follow the site', () =>
 });
 
 test('chart views follow the plan: 4H line chart, then candles', () => {
-  assert.deepEqual(CHART_VIEWS.map((v) => v.interval), ['240', '60', '15', '5']);
-  assert.equal(widgetConfig(CHART_VIEWS[0]).style, '2'); // line
-  assert.equal(widgetConfig(CHART_VIEWS[2]).style, '1'); // candles
-  assert.equal(widgetConfig(CHART_VIEWS[1]).symbol, 'OANDA:XAUUSD');
-  assert.equal(widgetConfig(CHART_VIEWS[1]).allow_symbol_change, false);
-  assert.equal(widgetConfig(CHART_VIEWS[1], { pro: true }).allow_symbol_change, true);
+  assert.deepEqual(CHART_VIEWS.map((v) => v.interval), ['4h', '1h', '15min', '5min']);
+  assert.equal(CHART_VIEWS[0].style, 'line');
+  assert.ok(CHART_VIEWS.slice(1).every((v) => v.style === 'candles'));
 });
 
-import { cleanSymbol, ALL_SYMBOLS } from '../src/lib/chartConfig.js';
-test('chart pairs: list covers forex, metals, indices, crypto; typed symbols are cleaned', () => {
-  assert.ok(ALL_SYMBOLS.length >= 50);
-  assert.equal(cleanSymbol('eurusd'), 'FX:EURUSD');
-  assert.equal(cleanSymbol('EUR/USD'), 'FX:EURUSD');
-  assert.equal(cleanSymbol('binance:btcusdt'), 'BINANCE:BTCUSDT');
+test('chart pairs: metals, forex, crypto; typed and old saved symbols are cleaned', () => {
+  assert.ok(ALL_SYMBOLS.length >= 40);
+  assert.equal(cleanSymbol('eurusd'), 'EUR/USD');
+  assert.equal(cleanSymbol('EUR/USD'), 'EUR/USD');
+  assert.equal(cleanSymbol('FX:GBPJPY'), 'GBP/JPY');
+  assert.equal(cleanSymbol('OANDA:XAUUSD'), 'XAU/USD');
+  assert.equal(cleanSymbol('BINANCE:BTCUSDT'), 'BTC/USD');
   assert.equal(cleanSymbol('<script>'), null);
-  assert.equal(widgetConfig(CHART_VIEWS[1], { symbol: 'FX:GBPJPY' }).symbol, 'FX:GBPJPY');
-  assert.equal(widgetConfig(CHART_VIEWS[1], { symbol: 'x"><img>' }).symbol, 'OANDA:XAUUSD');
+  assert.equal(pipSize('XAU/USD'), 0.1); assert.equal(pipSize('USD/JPY'), 0.01); assert.equal(pipSize('EUR/USD'), 0.0001);
+  assert.equal(decimals('XAU/USD'), 2); assert.equal(decimals('EUR/USD'), 5);
 });
 
 import { CALENDAR_CONFIG, NEWS_CONFIG } from '../src/data/widgets.js';
@@ -111,10 +105,10 @@ test('fundamentals widgets are scoped to gold: US events, XAUUSD news', () => {
 });
 
 import { ALL_VIEWS, MORE_VIEWS } from '../src/lib/chartConfig.js';
-import { REPLAY_INTERVALS } from '../src/lib/replay.js';
-test('every timeframe: 1m to monthly on the chart and in replay', () => {
-  assert.deepEqual(ALL_VIEWS.map((v) => v.interval).sort(), ['1', '120', '15', '180', '240', '3', '30', '5', '60', 'D', 'M', 'W'].sort());
+import { INTERVALS } from '../api/chart-data.js';
+test('every timeframe: 1m to monthly, each one the price feed serves', () => {
+  assert.deepEqual(ALL_VIEWS.map((v) => v.interval).sort(), ['1min', '5min', '15min', '30min', '45min', '1h', '2h', '4h', '1day', '1week', '1month'].sort());
   assert.equal(new Set(ALL_VIEWS.map((v) => v.id)).size, ALL_VIEWS.length);
-  assert.ok(MORE_VIEWS.every((v) => v.style === '1'));
-  assert.deepEqual(REPLAY_INTERVALS.map((i) => i.id), ['1min', '5min', '15min', '30min', '45min', '1h', '2h', '4h', '1day', '1week', '1month']);
+  assert.ok(ALL_VIEWS.every((v) => v.interval in INTERVALS && v.sec > 0));
+  assert.ok(MORE_VIEWS.every((v) => v.style === 'candles'));
 });

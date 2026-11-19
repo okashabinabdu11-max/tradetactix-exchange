@@ -160,7 +160,7 @@ function proPanel({ settings, networks, open, claims, ui }) {
 // ---------- Chart Pro: paid in birr (Telebirr or CBE), separate from signals Pro ----------
 const birr = (n) => `${Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ETB`;
 const daysText = (d) => (d === 1 ? t('1 day') : `${d} ${t('days')}`);
-const CHART_FEATURES = ['Bar replay like TradingView: cut at any date and practise trading candle by candle', 'All indicators', 'Test the TradeTactix plan on real past gold candles'];
+const CHART_FEATURES = ['Every indicator on the chart: EMA 50 and 200, Bollinger Bands, MACD, Stochastic, ATR', 'Works on every pair and timeframe', 'Drawing tools stay free for everyone'];
 const ETB_STATUS = { pending: 'Waiting for approval', approved: 'Approved, Chart Pro added', rejected: 'Not approved' };
 
 export function chartProPanel({ chart, user, cui }) {

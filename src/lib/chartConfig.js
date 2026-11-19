@@ -1,64 +1,84 @@
-// Chart settings that do not touch the page: views, indicators, colours and
-// the TradingView widget configuration. Pure, so it is unit tested.
+// Chart settings that do not touch the page: pairs, timeframes, indicators
+// and colours. Pure, so it is unit tested. Prices come from Twelve Data
+// through /api/chart-data, so symbols use its "BASE/QUOTE" form.
 
-export const CHART_SYMBOL = 'OANDA:XAUUSD';
+export const CHART_SYMBOL = 'XAU/USD';
 
-// Pairs to pick from. Any other TradingView symbol can be typed in too.
-const fx = (list) => list.map((p) => ({ id: `FX:${p}`, label: `${p.slice(0, 3)}/${p.slice(3)}` }));
+const fx = (list) => list.map((p) => ({ id: `${p.slice(0, 3)}/${p.slice(3)}`, label: `${p.slice(0, 3)}/${p.slice(3)}` }));
 export const SYMBOL_GROUPS = [
-  { label: 'Metals', items: [{ id: 'OANDA:XAUUSD', label: 'XAU/USD (Gold)' }, { id: 'OANDA:XAGUSD', label: 'XAG/USD (Silver)' }, { id: 'OANDA:XPTUSD', label: 'XPT/USD (Platinum)' }] },
+  { label: 'Metals', items: [{ id: 'XAU/USD', label: 'XAU/USD (Gold)' }, { id: 'XAG/USD', label: 'XAG/USD (Silver)' }] },
   { label: 'Major pairs', items: fx(['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'NZDUSD', 'USDCAD']) },
   { label: 'Cross pairs', items: fx(['EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'EURAUD', 'EURCAD', 'EURNZD', 'GBPCHF', 'GBPAUD', 'GBPCAD', 'GBPNZD', 'AUDJPY', 'AUDCAD', 'AUDCHF', 'AUDNZD', 'NZDJPY', 'NZDCAD', 'NZDCHF', 'CADJPY', 'CADCHF', 'CHFJPY']) },
   { label: 'Exotic pairs', items: fx(['USDZAR', 'USDTRY', 'USDMXN', 'USDSGD', 'USDHKD', 'USDNOK', 'USDSEK', 'USDPLN', 'EURTRY']) },
-  { label: 'Indices', items: [{ id: 'OANDA:NAS100USD', label: 'US Tech 100' }, { id: 'OANDA:SPX500USD', label: 'US 500' }, { id: 'OANDA:US30USD', label: 'US 30' }, { id: 'OANDA:DE30EUR', label: 'Germany 40' }, { id: 'OANDA:UK100GBP', label: 'UK 100' }, { id: 'OANDA:JP225USD', label: 'Japan 225' }] },
-  { label: 'Oil', items: [{ id: 'TVC:USOIL', label: 'US Oil (WTI)' }, { id: 'TVC:UKOIL', label: 'UK Oil (Brent)' }] },
-  { label: 'Crypto', items: [{ id: 'BITSTAMP:BTCUSD', label: 'BTC/USD' }, { id: 'BITSTAMP:ETHUSD', label: 'ETH/USD' }, { id: 'BINANCE:SOLUSDT', label: 'SOL/USDT' }, { id: 'BINANCE:XRPUSDT', label: 'XRP/USDT' }, { id: 'BINANCE:BNBUSDT', label: 'BNB/USDT' }] },
+  { label: 'Crypto', items: [{ id: 'BTC/USD', label: 'BTC/USD' }, { id: 'ETH/USD', label: 'ETH/USD' }, { id: 'SOL/USD', label: 'SOL/USD' }, { id: 'XRP/USD', label: 'XRP/USD' }, { id: 'BNB/USD', label: 'BNB/USD' }] },
 ];
 export const ALL_SYMBOLS = SYMBOL_GROUPS.flatMap((g) => g.items);
 
-/** A symbol as typed: "EURUSD", "fx:eurusd" or "BINANCE:BTCUSDT". Null when it cannot be a symbol. */
+// Old saved choices used TradingView ids ("OANDA:XAUUSD", "FX:EURUSD").
+const OLD_IDS = { 'OANDA:XAUUSD': 'XAU/USD', 'OANDA:XAGUSD': 'XAG/USD', 'BITSTAMP:BTCUSD': 'BTC/USD', 'BITSTAMP:ETHUSD': 'ETH/USD', 'BINANCE:SOLUSDT': 'SOL/USD', 'BINANCE:XRPUSDT': 'XRP/USD', 'BINANCE:BNBUSDT': 'BNB/USD' };
+
+/** A pair as typed: "EURUSD", "eur/usd", "BTCUSD". Null when it cannot be a pair. */
 export function cleanSymbol(input) {
-  const s = String(input || '').trim().toUpperCase().replace(/\s+/g, '').replace('/', '');
-  if (!/^([A-Z0-9_]{1,20}:)?[A-Z0-9._!]{2,30}$/.test(s)) return null;
-  if (s.includes(':')) return s;
-  const known = ALL_SYMBOLS.find((x) => x.id.split(':')[1] === s);
-  return known ? known.id : s;
+  let s = String(input || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (OLD_IDS[s]) return OLD_IDS[s];
+  if (s.includes(':')) s = s.split(':')[1];
+  if (/^[A-Z]{2,5}\/[A-Z]{3,4}$/.test(s)) return s;
+  if (/^[A-Z]{6}$/.test(s)) return `${s.slice(0, 3)}/${s.slice(3)}`;
+  if (/^[A-Z]{3,4}USDT?$/.test(s)) return `${s.replace(/USDT?$/, '')}/USD`;
+  return null;
 }
 
-// One view per step of the plan. 4H is a line chart because that is how the
-// levels are drawn; the others are candles.
-// Every other timeframe, shown in a row under the four of the plan.
-export const MORE_VIEWS = [
-  { id: '1m', label: '1m', interval: '1', style: '1' },
-  { id: '3m', label: '3m', interval: '3', style: '1' },
-  { id: '30m', label: '30m', interval: '30', style: '1' },
-  { id: '2h', label: '2H', interval: '120', style: '1' },
-  { id: '3h', label: '3H', interval: '180', style: '1' },
-  { id: '1d', label: '1D', interval: 'D', style: '1' },
-  { id: '1w', label: '1W', interval: 'W', style: '1' },
-  { id: '1mo', label: '1M', interval: 'M', style: '1' },
-];
+/** Size of one pip in price. */
+export function pipSize(symbol) {
+  const s = String(symbol || '');
+  if (s === 'XAU/USD') return 0.1;
+  if (s === 'XAG/USD') return 0.01;
+  if (/^(BTC|ETH|SOL|BNB)\//.test(s)) return 1;
+  if (s.startsWith('XRP/')) return 0.0001;
+  if (s.endsWith('/JPY')) return 0.01;
+  return 0.0001;
+}
+export const decimals = (symbol) => {
+  const p = pipSize(symbol);
+  return p >= 1 ? 2 : Math.min(5, Math.round(-Math.log10(p)) + 1);
+};
 
+// The four timeframes of the plan (4H is a line chart because that is how
+// the levels are drawn), then every other timeframe.
 export const CHART_VIEWS = [
-  { id: '4h', label: '4H', job: 'Support and resistance', interval: '240', style: '2' },
-  { id: '1h', label: '1H', job: 'Liquidity highs and lows', interval: '60', style: '1' },
-  { id: '15m', label: '15M', job: 'Retest and entry', interval: '15', style: '1' },
-  { id: '5m', label: '5M', job: 'Extra confirmation', interval: '5', style: '1' },
+  { id: '4h', label: '4H', job: 'Support and resistance', interval: '4h', style: 'line', sec: 14400 },
+  { id: '1h', label: '1H', job: 'Liquidity highs and lows', interval: '1h', style: 'candles', sec: 3600 },
+  { id: '15m', label: '15M', job: 'Retest and entry', interval: '15min', style: 'candles', sec: 900 },
+  { id: '5m', label: '5M', job: 'Extra confirmation', interval: '5min', style: 'candles', sec: 300 },
+];
+export const MORE_VIEWS = [
+  { id: '1m', label: '1m', interval: '1min', style: 'candles', sec: 60 },
+  { id: '30m', label: '30m', interval: '30min', style: 'candles', sec: 1800 },
+  { id: '45m', label: '45m', interval: '45min', style: 'candles', sec: 2700 },
+  { id: '2h', label: '2H', interval: '2h', style: 'candles', sec: 7200 },
+  { id: '1d', label: '1D', interval: '1day', style: 'candles', sec: 86400 },
+  { id: '1w', label: '1W', interval: '1week', style: 'candles', sec: 604800 },
+  { id: '1mo', label: '1M', interval: '1month', style: 'candles', sec: 2592000 },
+];
+export const ALL_VIEWS = [...CHART_VIEWS, ...MORE_VIEWS];
+
+// Indicators drawn by the app. The free plan gets the first two.
+export const INDICATORS = [
+  { id: 'sma', label: 'Moving average (20)', free: true, pane: 'price' },
+  { id: 'rsi', label: 'RSI (14)', free: true, pane: 'osc' },
+  { id: 'ema', label: 'EMA (50)', free: false, pane: 'price' },
+  { id: 'ema200', label: 'EMA (200)', free: false, pane: 'price' },
+  { id: 'bb', label: 'Bollinger Bands (20, 2)', free: false, pane: 'price' },
+  { id: 'macd', label: 'MACD (12, 26, 9)', free: false, pane: 'osc' },
+  { id: 'stoch', label: 'Stochastic (14, 3)', free: false, pane: 'osc' },
+  { id: 'atr', label: 'ATR (14)', free: false, pane: 'osc' },
 ];
 
-// TradingView indicator ids. The free plan gets the first two.
-export const INDICATORS = [
-  { id: 'MASimple@tv-basicstudies', label: 'Moving average', free: true },
-  { id: 'RSI@tv-basicstudies', label: 'RSI', free: true },
-  { id: 'MAExp@tv-basicstudies', label: 'EMA', free: false },
-  { id: 'MACD@tv-basicstudies', label: 'MACD', free: false },
-  { id: 'BB@tv-basicstudies', label: 'Bollinger Bands', free: false },
-  { id: 'StochasticRSI@tv-basicstudies', label: 'Stochastic RSI', free: false },
-  { id: 'IchimokuCloud@tv-basicstudies', label: 'Ichimoku Cloud', free: false },
-  { id: 'ATR@tv-basicstudies', label: 'ATR', free: false },
-  { id: 'VWAP@tv-basicstudies', label: 'VWAP', free: false },
-  { id: 'PivotPointsStandard@tv-basicstudies', label: 'Pivot points', free: false },
-];
+/** Indicators actually drawn: the free plan keeps only free ones. */
+export function allowedStudies(selected, pro) {
+  const ids = new Set(INDICATORS.filter((i) => pro || i.free).map((i) => i.id));
+  return (selected || []).filter((id) => ids.has(id));
+}
 
 export const COLOR_PRESETS = [
   { id: 'app', label: 'Match the site', theme: null },
@@ -81,37 +101,3 @@ export function resolveColors(choice, siteTheme = 'dark') {
   if (p) return { theme: p.theme, bg: p.bg, grid: p.grid };
   return siteTheme === 'light' ? { theme: 'light', bg: '#ffffff', grid: '#f0f0f0' } : { theme: 'dark', bg: '#000000', grid: '#161616' };
 }
-
-/** Indicators actually drawn: the free plan keeps only free ones. */
-export function allowedStudies(selected, pro) {
-  const ids = new Set(INDICATORS.filter((i) => pro || i.free).map((i) => i.id));
-  return (selected || []).filter((id) => ids.has(id));
-}
-
-export function widgetConfig(view, { pro = false, colors = resolveColors(null), studies = [], symbol = CHART_SYMBOL } = {}) {
-  return {
-    autosize: true,
-    symbol: cleanSymbol(symbol) || CHART_SYMBOL,
-    interval: view.interval,
-    style: view.style,
-    timezone: 'Africa/Addis_Ababa',
-    theme: colors.theme,
-    locale: 'en',
-    backgroundColor: colors.bg,
-    gridColor: colors.grid,
-    // Chart Pro can also search any symbol from TradingView's own toolbar.
-    allow_symbol_change: pro,
-    // Drawing tools (left toolbar) are free for everyone. Chart Pro adds the
-    // top toolbar with TradingView's full indicator list.
-    hide_top_toolbar: !pro,
-    hide_side_toolbar: false,
-    hide_legend: false,
-    withdateranges: true,
-    save_image: pro,
-    calendar: false,
-    studies: allowedStudies(studies, pro),
-    support_host: 'https://www.tradingview.com',
-  };
-}
-
-export const ALL_VIEWS = [...CHART_VIEWS, ...MORE_VIEWS];

@@ -3,7 +3,7 @@
 // makes, including "only your own rows" access. It is never bundled into the site.
 
 const accounts = new Map([['owner@example.com', { id: 'user-1', password: 'correct-horse' }]]);
-const tables = { risk_settings: [], trades: [], app_settings: [], payment_networks: [], payment_claims: [], telegram_links: [], access_requests: [], chart_plans: [], etb_methods: [], etb_payments: [] };
+const tables = { risk_settings: [], trades: [], app_settings: [], payment_networks: [], payment_claims: [], telegram_links: [], access_requests: [], chart_plans: [], etb_methods: [], etb_payments: [], chart_drawings: [] };
 const opts = new URLSearchParams(location.search);
 // Plans state for browser tests: ?plan=free|pro|admin and ?networks=bep20,trc20 (open networks).
 const PLAN = opts.get('plan') || 'free';
@@ -63,9 +63,10 @@ export function createClient(url, key) {
       } else if (q.op === 'upsert') {
         if (!uid || q.row.user_id !== uid) return rls;
         if (q.row.min_reward_to_risk < 3) return { data: null, error: { code: '23514', message: 'violates check constraint' } };
-        const existing = rows.find((r) => r.user_id === uid);
+        const same = (r) => r.user_id === uid && (name !== 'chart_drawings' || r.symbol === q.row.symbol);
+        const existing = rows.find(same);
         if (existing) Object.assign(existing, q.row); else rows.push({ ...q.row });
-        out = [rows.find((r) => r.user_id === uid)];
+        out = [rows.find(same)];
       } else if (q.op === 'update') {
         out = visible();
         out.forEach((r) => Object.assign(r, q.row));

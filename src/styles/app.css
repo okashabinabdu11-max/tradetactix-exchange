@@ -1001,3 +1001,29 @@ html.chart-full-open, html.chart-full-open body { overflow: hidden; }
 .tf-chip { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; min-width: 52px; min-height: 38px; padding: 0 12px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--raised); color: var(--text); font-weight: 700; font-size: 14px; }
 .tf-chip[aria-selected="true"] { border-color: var(--gold); background: var(--gold-dim); }
 .chart-shell.is-full .tf-more { flex: 1 1 100%; }
+
+/* ---------- Our own chart with drawing tools ---------- */
+.pro-frame { position: relative; background: #000; }
+.pro-chart { position: absolute; inset: 0; }
+.pc-lwc { position: absolute; inset: 0; }
+.pc-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
+.pc-overlay.is-active { pointer-events: auto; touch-action: none; cursor: crosshair; }
+.pro-status { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; text-align: center; color: var(--muted); font-size: 14px; z-index: 4; pointer-events: none; }
+.pro-status[hidden] { display: none; }
+.draw-bar { display: flex; flex-direction: column; gap: 6px; }
+.draw-tools { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.draw-tools::-webkit-scrollbar { display: none; }
+.dtool { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--raised); color: var(--text); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.dtool svg { width: 20px; height: 20px; flex: none; }
+.dtool[aria-pressed="true"] { border-color: #4a90e2; background: rgba(74, 144, 226, 0.16); color: var(--text); }
+.dtool.is-danger { color: var(--t-red); border-color: var(--t-red); }
+.dtool[hidden] { display: none; }
+.draw-tools .dtool span { display: none; }
+.draw-tools .dtool[aria-pressed="true"] span { display: inline; }
+@media (min-width: 900px) { .draw-tools .dtool span { display: inline; } }
+.draw-opts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.draw-colors { display: flex; gap: 6px; }
+.dcolor { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--line); background: var(--c); padding: 0; }
+.dcolor[aria-pressed="true"] { outline: 2px solid var(--text); outline-offset: 2px; }
+.draw-hint { margin: 0; font-size: 12.5px; color: var(--muted); }
+.chart-shell.is-full .draw-hint { display: none; }

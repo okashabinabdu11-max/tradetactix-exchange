@@ -354,28 +354,23 @@ export const adminSetEtbMethod = (id, name, number, enabled) => chartCall('admin
 export const adminListEtbPayments = (status = 'pending') => chartCall('admin_list_etb_payments', { p_status: status });
 export const adminReviewEtbPayment = (id, approve, note = '') => chartCall('admin_review_etb_payment', { p_id: id, p_approve: approve, p_note: note });
 
-/** Chart Pro backtest of the TradeTactix plan on real past candles. */
-export async function runBacktest(days) {
-  const token = await getAccessToken();
-  if (!token) return { ok: false, message: 'Open your account first.' };
+/** Candles for the chart (public market data, cached by the server). */
+export async function getChartCandles(symbol, interval) {
   try {
-    const res = await fetch(`/api/backtest?days=${encodeURIComponent(days)}`, { headers: { Authorization: `Bearer ${token}` } });
+    const res = await fetch(`/api/chart-data?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}`);
     const data = await res.json().catch(() => ({}));
-    return res.ok ? { ok: true, data } : { ok: false, message: data.message || 'The backtest could not run.' };
-  } catch {
-    return { ok: false, message: 'The backtest service could not be reached.' };
-  }
-}
-
-/** Chart Pro bar replay: real past candles for a pair and timeframe. */
-export async function loadReplayCandles(symbol, interval) {
-  const token = await getAccessToken();
-  if (!token) return { ok: false, message: 'Open your account first.' };
-  try {
-    const res = await fetch(`/api/backtest?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}`, { headers: { Authorization: `Bearer ${token}` } });
-    const data = await res.json().catch(() => ({}));
-    return res.ok ? { ok: true, data } : { ok: false, message: data.message || 'Past prices could not be loaded.' };
+    return res.ok && Array.isArray(data.candles) ? { ok: true, data } : { ok: false, message: data.message || 'Prices could not be loaded.' };
   } catch {
     return { ok: false, message: 'The price service could not be reached.' };
   }
+}
+
+/** Saved chart drawings for one pair: { drawings, updated_at } or null. */
+export async function loadDrawings(symbol) {
+  if (!client || !session.get().user) return { ok: false, message: 'signed out' };
+  return rows((c) => c.from('chart_drawings').select('drawings,updated_at').eq('user_id', session.get().user.id).eq('symbol', symbol).maybeSingle());
+}
+export async function saveDrawings(symbol, drawings) {
+  if (!client || !session.get().user) return { ok: false, message: 'signed out' };
+  return rows((c) => c.from('chart_drawings').upsert({ user_id: session.get().user.id, symbol, drawings, updated_at: new Date().toISOString() }, { onConflict: 'user_id,symbol' }).select('updated_at').maybeSingle());
 }
