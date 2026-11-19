@@ -109,3 +109,12 @@ test('fundamentals widgets are scoped to gold: US events, XAUUSD news', () => {
   assert.equal(NEWS_CONFIG.symbol, 'OANDA:XAUUSD');
   assert.equal(NEWS_CONFIG.feedMode, 'symbol');
 });
+
+import { ALL_VIEWS, MORE_VIEWS } from '../src/lib/chartConfig.js';
+import { REPLAY_INTERVALS } from '../src/lib/replay.js';
+test('every timeframe: 1m to monthly on the chart and in replay', () => {
+  assert.deepEqual(ALL_VIEWS.map((v) => v.interval).sort(), ['1', '120', '15', '180', '240', '3', '30', '5', '60', 'D', 'M', 'W'].sort());
+  assert.equal(new Set(ALL_VIEWS.map((v) => v.id)).size, ALL_VIEWS.length);
+  assert.ok(MORE_VIEWS.every((v) => v.style === '1'));
+  assert.deepEqual(REPLAY_INTERVALS.map((i) => i.id), ['1min', '5min', '15min', '30min', '45min', '1h', '2h', '4h', '1day', '1week', '1month']);
+});

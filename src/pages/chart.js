@@ -15,7 +15,7 @@ import { escapeHtml } from '../lib/format.js';
 import { replayMarkup, mountReplay } from './chartReplay.js';
 import { t } from '../lib/i18n.js';
 
-import { CHART_VIEWS, INDICATORS, COLOR_PRESETS, SYMBOL_GROUPS, ALL_SYMBOLS, CHART_SYMBOL, cleanSymbol, resolveColors, widgetConfig } from '../lib/chartConfig.js';
+import { CHART_VIEWS, MORE_VIEWS, ALL_VIEWS, INDICATORS, COLOR_PRESETS, SYMBOL_GROUPS, ALL_SYMBOLS, CHART_SYMBOL, cleanSymbol, resolveColors, widgetConfig } from '../lib/chartConfig.js';
 
 export { CHART_SYMBOL, SYMBOL_GROUPS, cleanSymbol, CHART_VIEWS, INDICATORS, COLOR_PRESETS, resolveColors, allowedStudies, widgetConfig } from '../lib/chartConfig.js';
 
@@ -24,7 +24,7 @@ const KEY = 'tt-chart';
 function loadPrefs() {
   try {
     const p = JSON.parse(localStorage.getItem(KEY) || '{}');
-    return { symbol: cleanSymbol(p.symbol) || CHART_SYMBOL, view: CHART_VIEWS.some((v) => v.id === p.view) ? p.view : '4h', colors: p.colors || { preset: 'app' }, studies: Array.isArray(p.studies) ? p.studies : [] };
+    return { symbol: cleanSymbol(p.symbol) || CHART_SYMBOL, view: ALL_VIEWS.some((v) => v.id === p.view) ? p.view : '4h', colors: p.colors || { preset: 'app' }, studies: Array.isArray(p.studies) ? p.studies : [] };
   } catch { return { symbol: CHART_SYMBOL, view: '4h', colors: { preset: 'app' }, studies: [] }; }
 }
 function savePrefs(p) { try { localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* private mode */ } }
@@ -88,6 +88,7 @@ export function chartPage() {
             </form>
           </div>
           <div class="tf-tabs" role="tablist" aria-label="${t('Timeframe')}">${tabs}</div>
+          <div class="tf-more" role="tablist" aria-label="${t('More timeframes')}">${MORE_VIEWS.map((v) => `<button class="tf-tab tf-chip" type="button" role="tab" data-view="${v.id}" aria-selected="${v.id === prefs.view}">${v.label}</button>`).join('')}</div>
           <div class="chart-tools">
             <button class="ctool" type="button" data-panel="studies" aria-expanded="false">${t('Indicators')}</button>
             <button class="ctool" type="button" data-panel="colors" aria-expanded="false">${t('Colors')}</button>
@@ -113,7 +114,7 @@ export function chartPage() {
       let drawTimer = null;
 
       const draw = () => {
-        const view = CHART_VIEWS.find((v) => v.id === prefs.view) || CHART_VIEWS[0];
+        const view = ALL_VIEWS.find((v) => v.id === prefs.view) || CHART_VIEWS[0];
         loadTradingViewWidget(host, 'embed-widget-advanced-chart.js', widgetConfig(view, { pro, symbol: prefs.symbol, colors: resolveColors(prefs.colors, currentTheme()), studies: prefs.studies }), t('The TradingView chart could not load.'));
       };
       const redraw = () => { clearTimeout(drawTimer); drawTimer = setTimeout(() => { draw(); replay?.redraw(); }, 150); };

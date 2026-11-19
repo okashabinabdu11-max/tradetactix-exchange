@@ -7,7 +7,7 @@ import { bearerToken, getChartAccess } from './access.js';
 import { normalizeSeries } from './candles.js';
 
 const PROVIDER_URL = 'https://api.twelvedata.com/time_series';
-const INTERVALS = new Set(['5min', '15min', '1h', '4h', '1day']);
+const INTERVALS = new Set(['1min', '5min', '15min', '30min', '45min', '1h', '2h', '4h', '1day', '1week', '1month']);
 const SYMBOL = /^[A-Z]{3,4}\/[A-Z]{3}$/;
 const CACHE_MS = 30 * 60e3;
 const cache = new Map();

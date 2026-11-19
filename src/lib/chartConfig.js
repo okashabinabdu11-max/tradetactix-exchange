@@ -27,6 +27,18 @@ export function cleanSymbol(input) {
 
 // One view per step of the plan. 4H is a line chart because that is how the
 // levels are drawn; the others are candles.
+// Every other timeframe, shown in a row under the four of the plan.
+export const MORE_VIEWS = [
+  { id: '1m', label: '1m', interval: '1', style: '1' },
+  { id: '3m', label: '3m', interval: '3', style: '1' },
+  { id: '30m', label: '30m', interval: '30', style: '1' },
+  { id: '2h', label: '2H', interval: '120', style: '1' },
+  { id: '3h', label: '3H', interval: '180', style: '1' },
+  { id: '1d', label: '1D', interval: 'D', style: '1' },
+  { id: '1w', label: '1W', interval: 'W', style: '1' },
+  { id: '1mo', label: '1M', interval: 'M', style: '1' },
+];
+
 export const CHART_VIEWS = [
   { id: '4h', label: '4H', job: 'Support and resistance', interval: '240', style: '2' },
   { id: '1h', label: '1H', job: 'Liquidity highs and lows', interval: '60', style: '1' },
@@ -102,3 +114,4 @@ export function widgetConfig(view, { pro = false, colors = resolveColors(null), 
   };
 }
 
+export const ALL_VIEWS = [...CHART_VIEWS, ...MORE_VIEWS];

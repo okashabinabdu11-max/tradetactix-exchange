@@ -16,7 +16,8 @@ export function replaySymbol(chartSymbol) {
 }
 
 export const REPLAY_INTERVALS = [
-  { id: '5min', label: '5M' }, { id: '15min', label: '15M' }, { id: '1h', label: '1H' }, { id: '4h', label: '4H' }, { id: '1day', label: '1D' },
+  { id: '1min', label: '1m' }, { id: '5min', label: '5M' }, { id: '15min', label: '15M' }, { id: '30min', label: '30M' }, { id: '45min', label: '45M' },
+  { id: '1h', label: '1H' }, { id: '2h', label: '2H' }, { id: '4h', label: '4H' }, { id: '1day', label: '1D' }, { id: '1week', label: '1W' }, { id: '1month', label: '1M' },
 ];
 
 /** Size of one pip in price for a data symbol. */

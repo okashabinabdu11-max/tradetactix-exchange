@@ -995,3 +995,9 @@ html.chart-full-open, html.chart-full-open body { overflow: hidden; }
 .replay-stage.is-picking .replay-controls, .replay-stage.is-picking .replay-trade { display: none; }
 .replay.is-full .replay-tv { height: 62vh; }
 .replay-canvas[hidden], .replay-pick[hidden] { display: none; }
+
+.tf-more { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.tf-more::-webkit-scrollbar { display: none; }
+.tf-chip { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; min-width: 52px; min-height: 38px; padding: 0 12px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--raised); color: var(--text); font-weight: 700; font-size: 14px; }
+.tf-chip[aria-selected="true"] { border-color: var(--gold); background: var(--gold-dim); }
+.chart-shell.is-full .tf-more { flex: 1 1 100%; }

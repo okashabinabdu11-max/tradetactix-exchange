@@ -348,4 +348,5 @@ export const AM = {
   'Free chart: all pairs, timeframes, colours, drawing tools (left toolbar), moving average and RSI. The full indicator list and bar replay come with Chart Pro.': 'ነጻ ቻርት፦ ሁሉም ጥንዶች፣ የጊዜ ክፍሎች፣ ቀለሞች፣ የመሳያ መሣሪያዎች (የግራ አሞሌ)፣ ሙቪንግ አቨሬጅ እና RSI። ሙሉ የኢንዲኬተር ዝርዝር እና ባር ሪፕሌይ ከChart Pro ጋር ይመጣሉ።',
   'Bar replay like TradingView: cut at any date and practise trading candle by candle': 'እንደ TradingView ባር ሪፕሌይ፦ በማንኛውም ቀን ቆርጠው ካንድል በካንድል ንግድ ይለማመዱ',
   'Test the TradeTactix plan on real past gold candles': 'የTradeTactix ፕላንን በእውነተኛ ያለፉ የወርቅ ካንድሎች ላይ ይሞክሩ',
+  'More timeframes': 'ተጨማሪ የጊዜ ክፍሎች',
 };
