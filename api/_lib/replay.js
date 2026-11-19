@@ -1,9 +1,10 @@
-// GET /api/replay?symbol=EUR/USD&interval=15min — Chart Pro only.
+// GET /api/backtest?symbol=EUR/USD&interval=15min — Chart Pro only.
+// (Served by api/backtest.js: the Hobby plan allows 12 server functions.)
 // Real past candles (Twelve Data) for bar replay practice on the chart page.
 // Each pair and timeframe is downloaded at most once per server every 30 minutes.
 
-import { bearerToken, getChartAccess } from './_lib/access.js';
-import { normalizeSeries } from './_lib/candles.js';
+import { bearerToken, getChartAccess } from './access.js';
+import { normalizeSeries } from './candles.js';
 
 const PROVIDER_URL = 'https://api.twelvedata.com/time_series';
 const INTERVALS = new Set(['5min', '15min', '1h', '4h', '1day']);
@@ -19,7 +20,7 @@ const send = (res, status, body) => {
 
 export const _resetReplayCache = () => cache.clear();
 
-export default async function handler(req, res) {
+export async function replayHandler(req, res) {
   if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); return send(res, 405, { message: 'Use GET.' }); }
   const symbol = String(req.query?.symbol || '').toUpperCase();
   const interval = String(req.query?.interval || '');

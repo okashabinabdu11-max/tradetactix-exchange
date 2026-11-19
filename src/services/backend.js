@@ -372,7 +372,7 @@ export async function loadReplayCandles(symbol, interval) {
   const token = await getAccessToken();
   if (!token) return { ok: false, message: 'Open your account first.' };
   try {
-    const res = await fetch(`/api/replay?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}`, { headers: { Authorization: `Bearer ${token}` } });
+    const res = await fetch(`/api/backtest?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}`, { headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json().catch(() => ({}));
     return res.ok ? { ok: true, data } : { ok: false, message: data.message || 'Past prices could not be loaded.' };
   } catch {

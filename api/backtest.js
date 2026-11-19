@@ -6,6 +6,9 @@
 import { bearerToken, getChartAccess } from './_lib/access.js';
 import { normalizeSeries } from './_lib/candles.js';
 import { backtest } from './_lib/backtest.js';
+import { replayHandler } from './_lib/replay.js';
+
+export { _resetReplayCache } from './_lib/replay.js';
 
 const PROVIDER_URL = 'https://api.twelvedata.com/time_series';
 const SIZES = { '4h': 800, '1h': 1600, '15min': 5000 };
@@ -37,6 +40,8 @@ async function history() {
 export const _resetBacktestCache = () => { cache = { at: 0, data: null }; };
 
 export default async function handler(req, res) {
+  // Bar replay candles share this function (?symbol=…&interval=…).
+  if (req.query?.symbol !== undefined) return replayHandler(req, res);
   if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); return send(res, 405, { message: 'Use GET.' }); }
   const token = bearerToken(req);
   if (!token) return send(res, 401, { message: 'Open your account first.' });

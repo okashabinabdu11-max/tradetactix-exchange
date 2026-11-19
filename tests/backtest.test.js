@@ -65,3 +65,16 @@ test('backtest API: Chart Pro member gets a labelled result from real candle dat
     assert.equal(calls.filter((u) => u.includes('twelvedata')).length, 3);
   } finally { globalThis.fetch = real; process.env.TWELVEDATA_API_KEY = key; if (key === undefined) delete process.env.TWELVEDATA_API_KEY; }
 });
+
+test('replay candles are served by the backtest function: bad pair refused, Chart Pro required', async () => {
+  const real = globalThis.fetch;
+  try {
+    let res = fakeRes();
+    await handler({ method: 'GET', headers: { authorization: TOKEN }, query: { symbol: 'BAD', interval: '15min' } }, res);
+    assert.equal(res.code, 400);
+    globalThis.fetch = async () => ({ ok: true, json: async () => ({ signed_in: true, chart_pro: false }) });
+    res = fakeRes();
+    await handler({ method: 'GET', headers: { authorization: TOKEN }, query: { symbol: 'EUR/USD', interval: '15min' } }, res);
+    assert.equal(res.code, 403);
+  } finally { globalThis.fetch = real; }
+});
