@@ -89,9 +89,10 @@ export function widgetConfig(view, { pro = false, colors = resolveColors(null), 
     gridColor: colors.grid,
     // Chart Pro can also search any symbol from TradingView's own toolbar.
     allow_symbol_change: pro,
-    // Chart Pro: TradingView's own toolbars with every drawing tool and indicator.
+    // Drawing tools (left toolbar) are free for everyone. Chart Pro adds the
+    // top toolbar with TradingView's full indicator list.
     hide_top_toolbar: !pro,
-    hide_side_toolbar: !pro,
+    hide_side_toolbar: false,
     hide_legend: false,
     withdateranges: true,
     save_image: pro,

@@ -984,3 +984,14 @@ html.chart-full-open, html.chart-full-open body { overflow: hidden; }
 .replay.is-full .replay-canvas { height: 62vh; }
 .plan-test { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 12px; }
 .plan-test summary { cursor: pointer; font-weight: 700; min-height: 32px; }
+
+.replay-tv { overflow: hidden; background: #000; }
+.replay-tv.is-picking { cursor: crosshair; outline: 2px dashed #4a90e2; outline-offset: -2px; }
+.replay-pick { border: 1px solid #4a90e2; border-radius: var(--r-md); padding: 10px 12px; background: rgba(74, 144, 226, 0.08); }
+.replay-pick p { margin: 0 0 8px; font-size: 14px; }
+.replay-pick-date { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.replay-pick-date label { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; }
+.replay-pick-date input { min-height: 38px; padding: 0 8px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--raised); color: var(--text); }
+.replay-stage.is-picking .replay-controls, .replay-stage.is-picking .replay-trade { display: none; }
+.replay.is-full .replay-tv { height: 62vh; }
+.replay-canvas[hidden], .replay-pick[hidden] { display: none; }

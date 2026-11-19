@@ -126,7 +126,7 @@ export function chartPage() {
         }).join('');
         return `<div class="study-grid">${items}</div>${pro
           ? `<p class="panel-note">${t('Chart Pro: every other TradingView indicator and drawing tool is in the toolbars on the chart.')}</p>`
-          : `<p class="panel-note">${t('Free: moving average and RSI. All indicators, unlimited drawing tools and backtesting come with Chart Pro.')} <a href="#/plans" data-chart-pro-link>${t('Get Chart Pro')}</a></p>`}`;
+          : `<p class="panel-note">${t('Free: drawing tools, moving average and RSI. All indicators and bar replay come with Chart Pro.')} <a href="#/plans" data-chart-pro-link>${t('Get Chart Pro')}</a></p>`}`;
       };
       const colorsPanel = () => {
         const c = prefs.colors;
@@ -149,7 +149,7 @@ export function chartPage() {
         root.querySelector('[data-chart-plan]').classList.toggle('is-pro', pro);
         root.querySelector('[data-tools-note]').textContent = pro
           ? t('Use the left toolbar for drawing tools and the top toolbar for indicators. Tap Full screen to hide the menus.')
-          : t('Free chart: timeframes, colours, moving average and RSI. Drawing tools and the full indicator list come with Chart Pro.');
+          : t('Free chart: all pairs, timeframes, colours, drawing tools (left toolbar), moving average and RSI. The full indicator list and bar replay come with Chart Pro.');
       };
 
       const backtestBody = root.querySelector('[data-backtest-body]');

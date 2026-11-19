@@ -63,10 +63,10 @@ test('formatters', () => {
 
 import { CHART_VIEWS, widgetConfig, resolveColors, allowedStudies, INDICATORS } from '../src/lib/chartConfig.js';
 
-test('chart: free gets no toolbars and only free indicators; Chart Pro gets everything', () => {
+test('chart: free gets drawing tools and only free indicators; Chart Pro gets everything', () => {
   const all = INDICATORS.map((i) => i.id);
   const free = widgetConfig(CHART_VIEWS[0], { pro: false, studies: all });
-  assert.equal(free.hide_side_toolbar, true); assert.equal(free.hide_top_toolbar, true);
+  assert.equal(free.hide_side_toolbar, false); assert.equal(free.hide_top_toolbar, true); // drawing tools free
   assert.deepEqual(free.studies, INDICATORS.filter((i) => i.free).map((i) => i.id));
   const pro = widgetConfig(CHART_VIEWS[0], { pro: true, studies: all });
   assert.equal(pro.hide_side_toolbar, false); assert.equal(pro.hide_top_toolbar, false);

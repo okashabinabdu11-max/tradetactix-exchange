@@ -12,6 +12,7 @@ export function createReplayChart(canvas) {
   let state = null;
   let offset = 0; // candles scrolled back from the replay point
   let drag = null;
+  let picking = false; let pickCb = null; let layout = null; // pick mode: tap a candle to cut there
 
   const css = (name, fallback) => getComputedStyle(canvas).getPropertyValue(name).trim() || fallback;
 
@@ -22,7 +23,9 @@ export function createReplayChart(canvas) {
     const w = canvas.clientWidth; const h = canvas.clientHeight;
     if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const { candles, end, trades = [], symbol, zoom = 70, bg, grid, up, down, text } = state;
+    const { candles, trades: allTrades = [], symbol, zoom = 70, bg, grid, up, down, text } = state;
+    const end = picking ? candles.length - 1 : state.end;
+    const trades = picking ? [] : allTrades;
     const axisW = 64; const axisH = 22; const plotW = w - axisW; const plotH = h - axisH;
     const count = Math.max(10, Math.min(zoom, end + 1));
     offset = Math.max(0, Math.min(offset, end + 1 - count));
@@ -36,6 +39,7 @@ export function createReplayChart(canvas) {
     const step = plotW / count; const bodyW = Math.max(1, step * 0.66);
     const x = (i) => (i - first) * step + step / 2;
     const dp = decimals(symbol);
+    layout = { first, step, plotW };
 
     ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
     ctx.font = '11px system-ui, sans-serif'; ctx.textBaseline = 'middle';
@@ -101,7 +105,14 @@ export function createReplayChart(canvas) {
     offset = Math.max(0, drag.offset + Math.round((e.clientX - drag.x) / step));
     render();
   };
-  const onUp = () => { drag = null; };
+  const onUp = (e) => {
+    const moved = drag ? Math.abs(e.clientX - drag.x) : 99;
+    drag = null;
+    if (picking && pickCb && layout && moved < 6) {
+      const r = canvas.getBoundingClientRect(); const xx = e.clientX - r.left;
+      if (xx >= 0 && xx < layout.plotW) pickCb(layout.first + Math.floor(xx / layout.step));
+    }
+  };
   canvas.addEventListener('pointerdown', onDown);
   canvas.addEventListener('pointermove', onMove);
   canvas.addEventListener('pointerup', onUp);
@@ -112,6 +123,7 @@ export function createReplayChart(canvas) {
   return {
     render,
     toLatest() { offset = 0; },
+    setPicking(on, cb) { picking = on; pickCb = on ? cb : null; offset = 0; render(); },
     css,
     destroy() {
       ro?.disconnect();
