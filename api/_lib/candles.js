@@ -18,7 +18,8 @@ export function normalizeSeries(body) {
   const candles = [];
   for (const v of body.values) {
     // Requested with timezone=UTC, so "2026-11-16 17:45:00" is a UTC time.
-    const time = new Date(`${String(v.datetime).replace(' ', 'T')}Z`);
+    const dt = String(v.datetime);
+    const time = new Date(`${dt.length === 10 ? `${dt}T00:00:00` : dt.replace(' ', 'T')}Z`); // daily candles have a date only
     const o = Number(v.open); const h = Number(v.high); const l = Number(v.low); const c = Number(v.close);
     const valid = !Number.isNaN(time.getTime()) && [o, h, l, c].every((n) => Number.isFinite(n) && n > 0) && h >= l;
     if (!valid) return { ok: false, status: 502, error: 'bad_response' };

@@ -5,6 +5,9 @@
     },
     "api/backtest.js": {
       "maxDuration": 60
+    },
+    "api/replay.js": {
+      "maxDuration": 30
     }
   },
   "headers": [

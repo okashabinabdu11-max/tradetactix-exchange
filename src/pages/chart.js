@@ -12,6 +12,7 @@ import { currentTheme } from '../ui/theme.js';
 import { session } from '../state/session.js';
 import { getChartAccess, runBacktest } from '../services/backend.js';
 import { escapeHtml } from '../lib/format.js';
+import { replayMarkup, mountReplay } from './chartReplay.js';
 import { t } from '../lib/i18n.js';
 
 import { CHART_VIEWS, INDICATORS, COLOR_PRESETS, SYMBOL_GROUPS, ALL_SYMBOLS, CHART_SYMBOL, cleanSymbol, resolveColors, widgetConfig } from '../lib/chartConfig.js';
@@ -115,7 +116,7 @@ export function chartPage() {
         const view = CHART_VIEWS.find((v) => v.id === prefs.view) || CHART_VIEWS[0];
         loadTradingViewWidget(host, 'embed-widget-advanced-chart.js', widgetConfig(view, { pro, symbol: prefs.symbol, colors: resolveColors(prefs.colors, currentTheme()), studies: prefs.studies }), t('The TradingView chart could not load.'));
       };
-      const redraw = () => { clearTimeout(drawTimer); drawTimer = setTimeout(draw, 150); };
+      const redraw = () => { clearTimeout(drawTimer); drawTimer = setTimeout(() => { draw(); replay?.redraw(); }, 150); };
 
       const studiesPanel = () => {
         const items = INDICATORS.map((i) => {
@@ -152,19 +153,25 @@ export function chartPage() {
       };
 
       const backtestBody = root.querySelector('[data-backtest-body]');
+      let replay = null;
       const renderBacktest = () => {
+        replay?.destroy(); replay = null;
         if (!pro) {
-          backtestBody.innerHTML = `<div class="locked-card">${LOCK}<div><p>${t('Replay the TradeTactix plan on up to 50 days of real past gold candles: win rate, TP and SL count, pips and every trade.')}</p>
+          backtestBody.innerHTML = `<div class="locked-card">${LOCK}<div><p>${t('Bar replay on real past candles: pick a pair and a start date, watch candles appear one by one, and practise BUY and SELL with SL and TP. Also: test the TradeTactix plan on gold.')}</p>
             <a class="button button-primary" href="#/plans" data-chart-pro-link>${t('Get Chart Pro')}</a></div></div>`;
           return;
         }
-        backtestBody.innerHTML = `
-          <p class="panel-note bt-scope">${t('The backtest runs the TradeTactix plan on XAUUSD (gold), the pair the strategy is built for.')}</p>
-          <form class="bt-form" data-bt-form>
-            <label>${t('Period')} <select name="days"><option value="7">${t('7 days')}</option><option value="14">${t('14 days')}</option><option value="30" selected>${t('30 days')}</option><option value="50">${t('50 days')}</option></select></label>
-            <button class="button button-primary" type="submit">${t('Run backtest')}</button>
-          </form>
-          <div data-bt-out aria-live="polite"></div>`;
+        backtestBody.innerHTML = `${replayMarkup(prefs.symbol)}
+          <details class="plan-test">
+            <summary>${t('Extra: test the TradeTactix plan on gold')}</summary>
+            <p class="panel-note bt-scope">${t('The backtest runs the TradeTactix plan on XAUUSD (gold), the pair the strategy is built for.')}</p>
+            <form class="bt-form" data-bt-form>
+              <label>${t('Period')} <select name="days"><option value="7">${t('7 days')}</option><option value="14">${t('14 days')}</option><option value="30" selected>${t('30 days')}</option><option value="50">${t('50 days')}</option></select></label>
+              <button class="button button-primary" type="submit">${t('Run backtest')}</button>
+            </form>
+            <div data-bt-out aria-live="polite"></div>
+          </details>`;
+        replay = mountReplay(backtestBody, () => prefs.symbol, () => resolveColors(prefs.colors, currentTheme()));
       };
 
       const onClick = (e) => {
@@ -205,6 +212,7 @@ export function chartPage() {
       const setSymbol = (sym) => {
         prefs.symbol = sym; savePrefs(prefs);
         root.querySelector('[data-symbol]').innerHTML = symbolOptions(sym);
+        replay?.pairChanged(sym);
         draw();
       };
       const onChange = (e) => {
@@ -248,7 +256,7 @@ export function chartPage() {
       };
       const onKey = (e) => { if (e.key === 'Escape' && shell.classList.contains('is-full')) root.querySelector('[data-full]').click(); };
       // Redraw in the new colours when the site theme changes and the chart follows it.
-      const themeObserver = new MutationObserver(() => { if (prefs.colors.preset === 'app') { redraw(); root.querySelector('[data-panel-body="colors"]').innerHTML = colorsPanel(); } });
+      const themeObserver = new MutationObserver(() => { if (prefs.colors.preset === 'app') { redraw(); replay?.redraw(); root.querySelector('[data-panel-body="colors"]').innerHTML = colorsPanel(); } });
       themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
       root.addEventListener('click', onClick);
@@ -269,6 +277,7 @@ export function chartPage() {
 
       return () => {
         alive = false;
+        replay?.destroy();
         clearTimeout(drawTimer);
         themeObserver.disconnect();
         root.removeEventListener('click', onClick);
