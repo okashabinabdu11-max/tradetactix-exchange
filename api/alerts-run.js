@@ -55,13 +55,13 @@ export default async function handler(req, res) {
     for (let i = 0; i < MARKET_LIST.length; i += 1) {
       const symbol = MARKET_LIST[i];
       if (read[i].status !== 'fulfilled') { out.markets[symbol] = { state: 'offline', reason: read[i].reason?.code || 'unavailable' }; continue; }
-      const { signal, m15 } = read[i].value;
-      candles[symbol] = m15;
+      const { signal, m5 } = read[i].value;
+      candles[symbol] = m5;
       const mk = { state: signal.state, sent: 0 };
       out.markets[symbol] = mk;
       if (signal.state !== 'buy' && signal.state !== 'sell') continue;
       const key = signalKey(signal);
-      const opened = new Date(new Date(signal.confirmedAt).getTime() + 15 * 60e3).toISOString();
+      const opened = signal.filledAt || new Date(new Date(signal.confirmedAt).getTime() + 15 * 60e3).toISOString();
       // Tracking is optional: the signal still goes out. Gold uses the original call.
       const track = { p_key: key, p_direction: signal.state, p_entry: signal.entry, p_stop: signal.stop, p_target: signal.target, p_opened_at: opened };
       await serverRpc('alerts_open_trade', symbol === 'XAUUSD' ? track : { ...track, p_symbol: symbol }).catch(() => null);
@@ -81,9 +81,9 @@ export default async function handler(req, res) {
     if (open?.length) {
       let members = null;
       for (const trade of open) {
-        const m15 = candles[trade.symbol || 'XAUUSD'];
-        if (!m15) continue; // that market's candles are unavailable this run
-        const ev = nextEvent(trade, m15);
+        const m5 = candles[trade.symbol || 'XAUUSD'];
+        if (!m5) continue; // that market's candles are unavailable this run
+        const ev = nextEvent(trade, m5);
         if (!ev) continue;
         const first = await serverRpc('alerts_trade_event', { p_key: trade.signal_key, p_event: ev.event, p_pips: ev.pips });
         if (!first) continue;

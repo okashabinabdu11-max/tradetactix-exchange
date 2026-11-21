@@ -54,7 +54,7 @@ const p2 = (n) => Number(n).toFixed(2);
 /** The alert text. Only real engine output goes in; nothing is filled in. */
 export function alertMessage(signal) {
   const buy = signal.state === 'buy';
-  const when = new Date(new Date(signal.confirmedAt).getTime() + 15 * 60e3).toISOString().slice(11, 16);
+  const when = (signal.filledAt || new Date(new Date(signal.confirmedAt).getTime() + 15 * 60e3).toISOString()).slice(11, 16);
   const role = buy ? 'support' : 'resistance';
   const m = marketOf(signal.symbol);
   const move = (d) => moveText(m, moveUnits(m, Math.abs(d)));
@@ -69,7 +69,7 @@ export function alertMessage(signal) {
     `Risk: <b>${move(signal.entry - signal.stop)}</b> · Reward: <b>${move(signal.target - signal.entry)}</b>${m.unit === 'usd' ? ' (price move)' : ''}`,
     '',
     signal.setup === 'order-block'
-      ? `Order block touched · structure shifted ${buy ? 'up' : 'down'} · Fib pullback filled in the zone ${p2(signal.entryZone?.[0])}–${p2(signal.entryZone?.[1])} at ${when} UTC. Stop at Fib 0.786, target at −0.618.`
+      ? `Order block touched · 5M structure shifted ${buy ? 'up' : 'down'} · Fib pullback filled in the zone ${p2(signal.entryZone?.[0])}–${p2(signal.entryZone?.[1])} at ${when} UTC. Stop at Fib 1, target at −0.618.`
       : `4H ${role} ${p2(signal.level?.price)} · 1H liquidity swept · 15M close confirmed at ${when} UTC.`,
     'If price has already moved away from the entry, this signal is no longer valid.',
     '',

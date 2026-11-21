@@ -28,7 +28,7 @@ const wave = [4050, 4030, 4010, 4000, 4020, 4050, 4080, 4100, 4085, 4060, 4030, 
 const h4Closes = [...Array(12).fill(0).map((_, i) => 4060 - i), ...wave, 4018, 4008];
 const h1Closes = [...Array(14).fill(4020), 4014, 4009, 4007, 4012, 4018, 4024, 4029, 4024, 4018, 4014, 4012, 4011, 4010, 4010];
 const h1Shape = (i) => (i === 16 ? { l: 4005 } : i === 20 ? { h: 4031 } : null);
-const obCloses = [...Array(20).fill(4050), 4047, 4056, 4060, 4064, 4058, 4056, 4052, 4049, 4055, 4060, 4066, 4069, 4063, 4059];
+const obCloses = [...Array(20).fill(4050), 4047, 4056, 4060, 4064, 4058, 4056, 4052, 4049, 4055, 4060, 4066, 4069, 4063, 4057];
 const obShape = (i) => (i === 23 ? { h: 4066 } : null);
 const btcAt = (end, k = 25) => ({
   h4: cont(h4Closes, INTERVAL_MS['4h'], end, k),
@@ -44,7 +44,7 @@ test('markets: gold and bitcoin, with their own units and largest stop', () => {
   assert.equal(moveText('BTCUSD', moveUnits('BTCUSD', 1234.4)), '$1,234');
   assert.equal(moveText('BTCUSD', -450, true), '−$450');
   assert.equal(paramsFor('XAUUSD'), PARAMS);
-  assert.equal(paramsFor('BTCUSD').maxStopUsd, 900);
+  assert.equal(paramsFor('BTCUSD').maxStopUsd, Infinity);
 });
 
 test('bitcoin trades at the weekend: the order-block route gives a BUY', () => {
@@ -53,7 +53,6 @@ test('bitcoin trades at the weekend: the order-block route gives a BUY', () => {
   assert.equal(r.state, 'buy', r.reason);
   assert.equal(r.setup, 'order-block');
   assert.ok(r.rr >= 3 && r.entry > 90000, `rr ${r.rr}, entry ${r.entry}`);
-  assert.ok(r.entry - r.stop <= 900, 'stop within $900');
 });
 
 test('the same weekend candles read as gold are offline (gold is closed)', () => {
@@ -62,10 +61,10 @@ test('the same weekend candles read as gold are offline (gold is closed)', () =>
   assert.equal(r.state, 'offline');
 });
 
-test('a bitcoin stop wider than $900 is skipped', () => {
+test('bitcoin has no dollar limit on the stop', () => {
   const r = evaluate({ ...btcAt(WED, 250), now: WED, market: 'BTCUSD' });
-  assert.notEqual(r.state, 'buy');
-  assert.match(r.reason, /too wide/);
+  assert.equal(r.state, 'buy', r.reason);
+  assert.ok(r.entry - r.stop > 900);
 });
 
 test('pressure counts busier candles more when every candle has volume', () => {

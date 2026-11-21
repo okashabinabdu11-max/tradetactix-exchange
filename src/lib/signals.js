@@ -10,10 +10,10 @@
 //
 // When no support or resistance is in play, an order-block setup is used:
 //   30M (or 15M) order block = the last opposite candle before a strong move.
-//   Price comes back and touches it, then a 15M market structure shift (MSS)
-//   breaks the last swing against the move. A Fib is drawn on that MSS leg
+//   Price comes back and touches it, then a 5M market structure shift (MSS)
+//   breaks the last 5M swing against the move. A Fib is drawn on that MSS leg
 //   (1 = the leg's start, 0 = its end): entry in the 0.5-0.618 zone, stop at
-//   0.786, take-profit at the -0.618 extension. Candle pressure (an estimated
+//   Fib 1, take-profit at the -0.618 extension. Candle pressure (an estimated
 //   delta, since spot gold has no exchange volume) must agree with the move.
 //
 // The same rules run on every market in markets.js (gold and bitcoin). Each
@@ -44,7 +44,7 @@ export const PARAMS = Object.freeze({
   obMaxAgeBars: 64, // order blocks older than this many 15M candles (16 hours) are ignored
   touchLookback: 24, // the order-block touch must be within this many 15M candles (6 hours)
   fibEntry: [0.5, 0.618], // entry zone, as Fib retracements of the MSS leg
-  fibStop: 0.786,
+  fibStop: 1, // the start of the MSS leg (the extreme reached in the order block)
   fibTarget: -0.618,
   minPressure: 0.1, // estimated delta of the MSS leg, from -1 (all selling) to 1 (all buying)
 });
@@ -55,7 +55,28 @@ export function paramsFor(market) {
   return m.maxStopUsd === PARAMS.maxStopUsd ? PARAMS : Object.freeze({ ...PARAMS, maxStopUsd: m.maxStopUsd });
 }
 
-export const INTERVAL_MS = { '4h': 4 * 3600e3, '1h': 3600e3, '30min': 1800e3, '15min': 900e3 };
+export const INTERVAL_MS = { '4h': 4 * 3600e3, '1h': 3600e3, '30min': 1800e3, '15min': 900e3, '5min': 300e3 };
+
+/**
+ * 15M candles built from 5M candles. A 15M candle is only kept once all of
+ * its 5M candles are in (cached 5M data can be a few minutes behind).
+ */
+export function fifteenFromFive(m5) {
+  const out = [];
+  for (const c of m5 || []) {
+    const t = new Date(c.t).getTime();
+    const start = Math.floor(t / 900e3) * 900e3;
+    const last = out[out.length - 1];
+    if (last && last._s === start) {
+      last.h = Math.max(last.h, c.h); last.l = Math.min(last.l, c.l); last.c = c.c; last.v += Number(c.v) || 0; last._end = t + 300e3;
+    } else {
+      out.push({ _s: start, _end: t + 300e3, t: new Date(start).toISOString(), o: c.o, h: c.h, l: c.l, c: c.c, v: Number(c.v) || 0 });
+    }
+  }
+  if (out.length && out[out.length - 1]._end < out[out.length - 1]._s + 900e3) out.pop();
+  const hasVolume = (m5 || []).some((c) => Number(c.v) > 0);
+  return out.map(({ _s, _end, v, ...c }) => (hasVolume ? { ...c, v } : c));
+}
 
 /** Drops the candle that is still forming. */
 export function closedOnly(candles, intervalMs, now = Date.now()) {
@@ -200,83 +221,112 @@ export function findOrderBlocks(candles, params = PARAMS, tf = '15M') {
 const fibAt = (one, zero, x) => zero + (one - zero) * x; // 1 = leg start, 0 = leg end
 
 /**
- * One order-block setup in one direction, read on the 15M candles.
+ * One order-block setup in one direction. The touch, the market structure
+ * shift and the Fib pullback are read on `cl`, the lower-timeframe candles
+ * (5M; 15M when no 5M candles are given), `clMs` long each.
  * Returns how far it got: 1 found, 2 touched, 3 MSS, 4 in the entry zone.
  */
-function obSetup(ob, c15, now, minRR, params) {
+function obSetup(ob, cl, clMs, now, minRR, params) {
   const long = ob.dir === 'buy';
   const s = long ? 1 : -1;
   const ms = (c) => new Date(c.t).getTime();
+  const bars = (n15) => Math.max(1, Math.round((n15 * 900e3) / clMs)); // params count 15M candles
   const formedEnd = new Date(ob.formedAt).getTime() + (ob.tf === '30M' ? 1800e3 : 900e3);
   const res = { ob, dir: ob.dir, stage: 1 };
-  const startIdx = c15.findIndex((c) => ms(c) >= formedEnd);
+  const startIdx = cl.findIndex((c) => ms(c) >= formedEnd);
   if (startIdx === -1) return res;
   const inZone = (c) => (long ? c.l <= ob.top : c.h >= ob.bottom);
   const broke = (c) => (long ? c.c < ob.bottom : c.c > ob.top);
   let touch = -1;
-  for (let i = startIdx; i < c15.length; i += 1) {
-    if (broke(c15[i])) return { ...res, spent: true };
-    if (inZone(c15[i])) { touch = i; break; }
+  for (let i = startIdx; i < cl.length; i += 1) {
+    if (broke(cl[i])) return { ...res, spent: true };
+    if (inZone(cl[i])) { touch = i; break; }
   }
   if (touch === -1) return res;
-  if (touch < c15.length - params.touchLookback) return { ...res, stale: true };
-  res.stage = 2; res.touchAt = c15[touch].t;
+  if (touch < cl.length - bars(params.touchLookback)) return { ...res, stale: true };
+  res.stage = 2; res.touchAt = cl[touch].t;
 
-  // The swing the MSS must break: the last 15M swing against the move, before the touch.
-  const swings = pivots(c15.map((c) => (long ? c.h : c.l)), params.pivotSpan).filter((p) => p.kind === (long ? 'high' : 'low') && p.i < touch);
+  // The swing the MSS must break: the last swing against the move, before the touch.
+  const swings = pivots(cl.map((c) => (long ? c.h : c.l)), params.pivotSpan).filter((p) => p.kind === (long ? 'high' : 'low') && p.i < touch);
   const swing = swings[swings.length - 1];
   if (!swing) return { ...res, note: 'no swing' };
   res.swing = swing.v;
   let mss = -1;
-  for (let i = touch; i < c15.length; i += 1) {
-    if (broke(c15[i])) return { ...res, spent: true };
-    if (long ? c15[i].c > swing.v : c15[i].c < swing.v) { mss = i; break; }
+  for (let i = touch; i < cl.length; i += 1) {
+    if (broke(cl[i])) return { ...res, spent: true };
+    if (long ? cl[i].c > swing.v : cl[i].c < swing.v) { mss = i; break; }
   }
   if (mss === -1) return res;
-  res.stage = 3; res.mssAt = c15[mss].t;
+  res.stage = 3; res.mssAt = cl[mss].t;
 
   // Fib on the MSS leg: 1 = the extreme reached in the order block, 0 = the end of the move.
-  let one = c15[touch][long ? 'l' : 'h'];
+  let one = cl[touch][long ? 'l' : 'h'];
   let oneIdx = touch;
-  for (let i = touch; i <= mss; i += 1) if ((c15[i][long ? 'l' : 'h'] - one) * s < 0) { one = c15[i][long ? 'l' : 'h']; oneIdx = i; }
+  for (let i = touch; i <= mss; i += 1) if ((cl[i][long ? 'l' : 'h'] - one) * s < 0) { one = cl[i][long ? 'l' : 'h']; oneIdx = i; }
   let zero = one;
-  for (let i = oneIdx; i <= mss; i += 1) zero = long ? Math.max(zero, c15[i].h) : Math.min(zero, c15[i].l);
-  res.pressure = pressure(c15.slice(oneIdx, mss + 1));
+  for (let i = oneIdx; i <= mss; i += 1) zero = long ? Math.max(zero, cl[i].h) : Math.min(zero, cl[i].l);
+  res.pressure = pressure(cl.slice(oneIdx, mss + 1));
   const [z1, z2] = params.fibEntry;
-  for (let k = mss + 1; k < c15.length; k += 1) {
-    const c = c15[k];
+  const rrAt = (x) => {
+    const e = fibAt(one, zero, x);
+    return ((fibAt(one, zero, params.fibTarget) - e) * s) / ((e - fibAt(one, zero, params.fibStop)) * s);
+  };
+  // The entry is the shallowest level of the zone that still gives at least minRR
+  // (with the stop at Fib 1 that is 0.618: 0.5 only gives about 1:2.2).
+  let frozen = false; // once price reaches the zone the Fib is fixed
+  for (let k = mss + 1; k < cl.length; k += 1) {
+    const c = cl[k];
     const shallow = fibAt(one, zero, z1);
     const deep = fibAt(one, zero, z2);
     const stop = fibAt(one, zero, params.fibStop);
-    if (long ? c.l <= shallow : c.h >= shallow) {
-      if (long ? c.l <= stop : c.h >= stop) return { ...res, one, zero, failed: true };
-      const entry = (long ? c.l <= deep : c.h >= deep) ? deep : shallow;
+    const reaches = (p) => (long ? c.l <= p : c.h >= p);
+    if (reaches(shallow)) {
+      frozen = true;
+      if (reaches(stop)) return { ...res, one, zero, failed: true };
+      const level = [z1, z2].find((x) => rrAt(x) >= minRR - 1e-9 && reaches(fibAt(one, zero, x)));
+      if (level === undefined) { res.partial = true; continue; } // keep waiting for the deeper level
+      const entry = fibAt(one, zero, level);
       const target = fibAt(one, zero, params.fibTarget);
       const risk = (entry - stop) * s;
       const rr = ((target - entry) * s) / risk;
-      const after = c15.slice(k + 1);
-      Object.assign(res, { stage: 4, one, zero, entry, stop, target, risk, rr, zone: [shallow, deep], confirmedAt: c.t });
+      const after = cl.slice(k + 1);
+      Object.assign(res, { stage: 4, one, zero, entry, stop, target, risk, rr, zone: [shallow, deep], confirmedAt: c.t, filledAt: new Date(ms(c) + clMs).toISOString() });
       if (after.some((x) => (long ? x.l <= stop : x.h >= stop))) return { ...res, failed: true };
-      if (k < c15.length - params.freshBars) return { ...res, expired: true };
+      if (k < cl.length - bars(params.freshBars)) return { ...res, expired: true };
       return res;
+    }
+    if (frozen) {
+      // After touching the zone, a new extreme beyond Fib 0 means the entry was missed.
+      if (long ? c.h > zero : c.l < zero) return { ...res, one, zero, failed: true };
+      continue;
     }
     zero = long ? Math.max(zero, c.h) : Math.min(zero, c.l);
   }
-  Object.assign(res, { one, zero, zone: [fibAt(one, zero, z1), fibAt(one, zero, z2)], stop: fibAt(one, zero, params.fibStop), target: fibAt(one, zero, params.fibTarget) });
+  const need = [z1, z2].find((x) => rrAt(x) >= minRR - 1e-9);
+  Object.assign(res, {
+    one, zero, zone: [fibAt(one, zero, z1), fibAt(one, zero, z2)], stop: fibAt(one, zero, params.fibStop), target: fibAt(one, zero, params.fibTarget),
+    entryLevel: need ?? null, entryAt: need === undefined ? null : fibAt(one, zero, need),
+  });
+  if (need === undefined) return { ...res, failed: true }; // no level in the zone gives the minimum
   return res;
 }
 
 const P = (n) => Number(n).toFixed(2);
 
-/** The order-block route: the most advanced setup, from 30M blocks first, then 15M. */
-export function evaluateOrderBlocks({ c15, now, minRR, params = PARAMS }) {
-  const price = c15[c15.length - 1].c;
+/**
+ * The order-block route: the most advanced setup, from 30M blocks first, then 15M.
+ * Blocks are found on 15M/30M; the touch, MSS and entry are read on 5M (`c5`).
+ */
+export function evaluateOrderBlocks({ c15, c5 = null, now, minRR, params = PARAMS }) {
+  const lower = c5 && c5.length ? c5 : c15;
+  const lowerMs = c5 && c5.length ? INTERVAL_MS['5min'] : INTERVAL_MS['15min'];
+  const price = lower[lower.length - 1].c;
   const recent = c15.slice(-params.obMaxAgeBars);
   const blocks = [
     ...findOrderBlocks(aggregate30(recent), params, '30M'),
     ...findOrderBlocks(recent, params, '15M'),
   ];
-  const setups = blocks.map((ob) => obSetup(ob, c15, now, minRR, params)).filter((x) => !x.spent && !x.stale && !x.failed);
+  const setups = blocks.map((ob) => obSetup(ob, lower, lowerMs, now, minRR, params)).filter((x) => !x.spent && !x.stale && !x.failed);
   const rank = (x) => x.stage * 10 + (x.ob.tf === '30M' ? 1 : 0) + (x.expired ? -5 : 0);
   // Among untouched blocks prefer the closest to price.
   const dist = (x) => Math.min(Math.abs(price - x.ob.top), Math.abs(price - x.ob.bottom));
@@ -296,8 +346,8 @@ export function evaluateOrderBlocks({ c15, now, minRR, params = PARAMS }) {
     out.looking = [`A market structure shift: a close ${long ? 'above' : 'below'} ${P(best.swing ?? price)}.`, 'Then a pullback into the Fib entry zone.'];
     out.seeing = [`Price touched the ${side} order block at ${zoneTxt}.`, `Price now ${P(price)}.`];
   } else if (best.stage === 3) {
-    out.looking = [`A pullback into the entry zone ${P(best.zone[0])}–${P(best.zone[1])} (Fib 0.5–0.618).`, `Stop ${P(best.stop)} (0.786), target ${P(best.target)} (−0.618).`];
-    out.seeing = [`Order block touched and structure shifted ${long ? 'up' : 'down'}.`, `Price now ${P(price)}. Candle pressure ${best.pressure >= 0 ? 'buying' : 'selling'} ${Math.round(Math.abs(best.pressure) * 100)}%.`];
+    out.looking = [`A pullback to ${P(best.entryAt)} (Fib ${best.entryLevel}) in the entry zone ${P(best.zone[0])}–${P(best.zone[1])}, for at least 1:${minRR}.`, `Stop ${P(best.stop)} (Fib 1), target ${P(best.target)} (−0.618).`];
+    out.seeing = [`Order block touched and structure shifted ${long ? 'up' : 'down'}.${best.partial ? ' Price reached Fib 0.5 but not the entry level yet.' : ''}`, `Price now ${P(price)}. Candle pressure ${best.pressure >= 0 ? 'buying' : 'selling'} ${Math.round(Math.abs(best.pressure) * 100)}%.`];
   } else if (best.expired) {
     out.looking = ['A new order-block setup.'];
     out.seeing = [`A ${long ? 'buy' : 'sell'} entry filled at ${P(best.entry)} earlier; that entry has passed.`];
@@ -389,13 +439,15 @@ export function evaluate({ market, params, ...rest }) {
   return { ...evaluateMarket({ ...rest, m, params: params || paramsFor(m) }), symbol: m.symbol };
 }
 
-function evaluateMarket({ h4, h1, m15, now = Date.now(), minRewardToRisk = MIN_REWARD_TO_RISK, params, m }) {
+function evaluateMarket({ h4, h1, m15, m5 = null, now = Date.now(), minRewardToRisk = MIN_REWARD_TO_RISK, params, m }) {
   const minRR = Math.max(MIN_REWARD_TO_RISK, Number(minRewardToRisk) || MIN_REWARD_TO_RISK);
   // Gold's data provider fills its closed hours with flat candles; bitcoin never closes.
   const hours = (list, ms) => (m.alwaysOpen ? list : tradingOnly(list, ms));
   const c4 = hours(closedOnly(h4 || [], INTERVAL_MS['4h'], now), INTERVAL_MS['4h']);
   const c1 = hours(closedOnly(h1 || [], INTERVAL_MS['1h'], now), INTERVAL_MS['1h']);
-  const c15 = hours(closedOnly(m15 || [], INTERVAL_MS['15min'], now), INTERVAL_MS['15min']);
+  // 15M candles are built from the 5M ones when they are given.
+  const c15 = hours(closedOnly(m5 ? fifteenFromFive(m5) : m15 || [], INTERVAL_MS['15min'], now), INTERVAL_MS['15min']);
+  const c5 = m5 ? hours(closedOnly(m5, INTERVAL_MS['5min'], now), INTERVAL_MS['5min']) : null;
   if (c4.length < 30 || c1.length < 20 || c15.length < params.lookback15 + 14) {
     return { state: 'offline', reason: 'Not enough candle history to analyse yet.', checks: null };
   }
@@ -404,7 +456,7 @@ function evaluateMarket({ h4, h1, m15, now = Date.now(), minRewardToRisk = MIN_R
     return { state: 'offline', reason: 'The market is closed or the candle data is out of date.', checks: null, asOf: c15[c15.length - 1].t };
   }
 
-  const price = c15[c15.length - 1].c;
+  const price = c5 && c5.length ? c5[c5.length - 1].c : c15[c15.length - 1].c;
   const atr4 = atr(c4);
   const atr15 = atr(c15);
   const levels = findLevels(c4, params);
@@ -418,7 +470,7 @@ function evaluateMarket({ h4, h1, m15, now = Date.now(), minRewardToRisk = MIN_R
   if (!nearest || distance > zone) {
     // No support or resistance in play: use the order-block route.
     const levelNote = nearest ? `Nearest ${nearest.price > price ? 'resistance' : 'support'} ${nearest.price.toFixed(2)} is ${distance.toFixed(2)} away.` : 'No support or resistance level with two turns.';
-    const ob = evaluateOrderBlocks({ c15, now, minRR, params });
+    const ob = evaluateOrderBlocks({ c15, c5, now, minRR, params });
     const srChecks = {
       h4: { ok: false, text: nearest ? `Nearest level ${nearest.price.toFixed(2)}, ${distance.toFixed(2)} away` : 'No level with two turns' },
       h1: liquidity.high || liquidity.low ? { ok: null, text: `High ${liquidity.high ? liquidity.high.price.toFixed(2) : 'n/a'}, low ${liquidity.low ? liquidity.low.price.toFixed(2) : 'n/a'}` } : null,
@@ -436,7 +488,7 @@ function evaluateMarket({ h4, h1, m15, now = Date.now(), minRewardToRisk = MIN_R
       if (!(x.rr >= minRR - 1e-9)) return { ...common, state: 'no-setup', direction: x.dir, reason: `An order-block entry formed, but it only offers 1:${x.rr.toFixed(1)}.` };
       return {
         ...common, state: x.dir, direction: x.dir, setup: 'order-block',
-        entry: x.entry, stop: x.stop, target: x.target, rr: x.rr, confirmedAt: x.confirmedAt,
+        entry: x.entry, stop: x.stop, target: x.target, rr: x.rr, confirmedAt: x.confirmedAt, filledAt: x.filledAt,
         targetBasis: 'the −0.618 Fib extension of the structure-shift move',
         entryZone: x.zone, fib: { one: x.one, zero: x.zero }, pressure: x.pressure, orderBlock: { top: x.ob.top, bottom: x.ob.bottom, tf: x.ob.tf },
         reason: `Order block touched, structure shifted ${long ? 'up' : 'down'}, and price pulled back into the Fib entry zone.`,
@@ -469,7 +521,7 @@ function evaluateMarket({ h4, h1, m15, now = Date.now(), minRewardToRisk = MIN_R
   base.route = 'support-resistance';
 
   if (best.passed === 4) {
-    return { ...base, state: best.direction, setup: 'support-resistance', level: nearest, checks, direction: best.direction, entry: best.entry, stop: best.stop, target: best.target, rr: best.rr, targetBasis: best.targetBasis, confirmedAt: best.confirmedAt, reason: `All checks passed at the 4H ${role} ${nearest.price.toFixed(2)}.` };
+    return { ...base, state: best.direction, setup: 'support-resistance', level: nearest, checks, direction: best.direction, entry: best.entry, stop: best.stop, target: best.target, rr: best.rr, targetBasis: best.targetBasis, confirmedAt: best.confirmedAt, filledAt: new Date(Date.parse(best.confirmedAt) + INTERVAL_MS['15min']).toISOString(), reason: `All checks passed at the 4H ${role} ${nearest.price.toFixed(2)}.` };
   }
   if (best.expired) {
     checks.m15 = { ok: false, text: 'Confirmed earlier; that entry has passed' };

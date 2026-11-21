@@ -1,4 +1,4 @@
-// GET /api/candles?tf=4h|1h|15min&symbol=XAUUSD|BTCUSD&k=… — candles for the signal engine.
+// GET /api/candles?tf=4h|1h|15min|5min&symbol=XAUUSD|BTCUSD&k=… — candles for the signal engine.
 // XAUUSD from Twelve Data (server-side so the key stays private); BTCUSD from
 // public exchange data. Cached per timeframe so the free limits are not exceeded.
 

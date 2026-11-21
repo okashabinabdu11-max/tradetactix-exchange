@@ -4,6 +4,8 @@ export const TIMEFRAMES = Object.freeze({
   '4h': { outputsize: 150, cacheSeconds: 1800 },
   '1h': { outputsize: 120, cacheSeconds: 900 },
   '15min': { outputsize: 96, cacheSeconds: 450 },
+  // 5M candles: the order-block MSS and entry, and the 15M candles are built from them.
+  '5min': { outputsize: 600, cacheSeconds: 300 },
 });
 
 export function normalizeSeries(body) {
@@ -35,7 +37,7 @@ export function normalizeSeries(body) {
 // Twelve Data daily credits that gold relies on. Real exchange candles carry
 // real traded volume (`v`).
 
-export const CRYPTO_MINUTES = Object.freeze({ '4h': 240, '1h': 60, '15min': 15 });
+export const CRYPTO_MINUTES = Object.freeze({ '4h': 240, '1h': 60, '15min': 15, '5min': 5 });
 
 const ok = (o, h, l, c) => [o, h, l, c].every((n) => Number.isFinite(n) && n > 0) && h >= l && h >= Math.max(o, c) - 1e-9 && l <= Math.min(o, c) + 1e-9;
 

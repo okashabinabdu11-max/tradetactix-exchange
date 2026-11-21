@@ -32,7 +32,7 @@ export async function readSignal(origin, minRewardToRisk = 3, symbol = 'XAUUSD')
   return (await readMarket(origin, minRewardToRisk, symbol)).signal;
 }
 
-/** One market's signal plus its raw 15M candles (including the one still forming). */
+/** One market's signal plus its raw 5M candles (including the one still forming). */
 export async function readMarket(origin, minRewardToRisk = 3, symbol = 'XAUUSD') {
   const market = marketOf(symbol);
   const key = process.env.CANDLES_KEY;
@@ -43,6 +43,7 @@ export async function readMarket(origin, minRewardToRisk = 3, symbol = 'XAUUSD')
     if (!r.ok || !Array.isArray(body.candles)) throw Object.assign(new Error('candles'), { code: body.error || 'unavailable' });
     return body.candles;
   };
-  const [h4, h1, m15] = await Promise.all([load('4h'), load('1h'), load('15min')]);
-  return { signal: await applyNewsPause(evaluate({ h4, h1, m15, minRewardToRisk, market: market.symbol })), m15, market };
+  // 15M candles are built from the 5M ones, so one request gives both timeframes.
+  const [h4, h1, m5] = await Promise.all([load('4h'), load('1h'), load('5min')]);
+  return { signal: await applyNewsPause(evaluate({ h4, h1, m5, minRewardToRisk, market: market.symbol })), m5, market };
 }

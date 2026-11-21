@@ -31,10 +31,10 @@ export default async function handler(req, res) {
 
   const market = marketOf(req.query?.symbol);
   let signal;
-  let m15 = [];
+  let m5 = [];
   try {
     const wanted = Number(req.query?.minrr);
-    ({ signal, m15 } = await readMarket(origin, Number.isFinite(wanted) ? Math.min(Math.max(wanted, 3), 20) : 3, market.symbol));
+    ({ signal, m5 } = await readMarket(origin, Number.isFinite(wanted) ? Math.min(Math.max(wanted, 3), 20) : 3, market.symbol));
   } catch (err) {
     return send(res, 200, { symbol: market.symbol, state: 'offline', access: entitlement.signed_in ? (entitlement.shows_levels ? 'full' : 'limited') : 'anonymous', reason: 'The market is closed or price data is unavailable.', readAt });
   }
@@ -49,11 +49,11 @@ export default async function handler(req, res) {
     body.previews = { used: entitlement.previews_used ?? null, limit: entitlement.previews_limit ?? null };
   }
   // Approved members also see the signal that is running now, or how the last one ended.
-  if (entitlement.shows_levels) body.trade = await latestTrade(origin, market.symbol, signal.price, m15);
+  if (entitlement.shows_levels) body.trade = await latestTrade(origin, market.symbol, signal.price, m5);
   return send(res, 200, { ...body, plan: entitlement.plan, readAt });
 }
 
-async function latestTrade(origin, symbol, fallbackPrice, m15) {
+async function latestTrade(origin, symbol, fallbackPrice, m5) {
   try {
     // Gold calls the function as before, so it keeps working before the bitcoin database update.
     const rows = await serverRpc('alerts_latest_trade', symbol === 'XAUUSD' ? {} : { p_symbol: symbol });
@@ -62,7 +62,7 @@ async function latestTrade(origin, symbol, fallbackPrice, m15) {
     let live = null;
     if (row.status === 'open' && symbol !== 'XAUUSD') {
       // Bitcoin: the newest exchange candle's price (the candles are cached for a few minutes).
-      const last = m15[m15.length - 1];
+      const last = m5[m5.length - 1];
       live = Number.isFinite(last?.c) ? last.c : Number.isFinite(fallbackPrice) ? fallbackPrice : null;
     } else if (row.status === 'open') {
       // The live quote (cached for 5 minutes); the last 15M close if it is unavailable.

@@ -59,7 +59,7 @@ function tradeBlock(signal) {
         <div><dt>Reward-to-risk</dt><dd>${ratio(Math.floor(signal.rr * 10) / 10)}</dd></div>
       </dl>
       <p class="signal-basis"><strong>Risk ${move(signal.entry - signal.stop)}, reward ${move(signal.target - signal.entry)}${m.unit === 'usd' ? ' of price' : ''}.</strong> ${signal.setup === 'order-block' && signal.entryZone
-        ? `Entry is in the Fib 0.5–0.618 zone ${price(signal.entryZone[0])}–${price(signal.entryZone[1])}, filled at ${time(signal.confirmedAt)}. Stop at Fib 0.786.`
+        ? `Entry is in the Fib 0.5–0.618 zone ${price(signal.entryZone[0])}–${price(signal.entryZone[1])}, filled at ${time(signal.confirmedAt)}. Stop at Fib 1, the start of the 5M structure-shift move.`
         : `Entry is the close of the confirming candle at ${time(signal.confirmedAt)}.`} Target: ${escapeHtml(signal.targetBasis || '')}. If price has already moved away from the entry, the signal is no longer valid.</p>
       ${m.symbol === 'XAUUSD' ? '<a class="button button-primary" href="#/risk">Size this trade</a>' : ''}`;
   }

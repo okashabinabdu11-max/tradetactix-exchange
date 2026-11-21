@@ -48,7 +48,7 @@ export function signalsPage() {
           <li><strong>15M.</strong> After the sweep, price must return to the level and a candle must close back in the trade direction.</li>
           <li><strong>Risk.</strong> The stop goes just beyond the 15M retest and the 4H level, and is kept tight. The next 4H level must be at least ${ratio(myMinimum())} away, or there is no signal.</li>
         </ol>
-        <p class="panel-note">The engine reads price only. Check the <a class="inline-link" href="#/analysis">economic calendar</a> for high-impact US news before acting. Signal history and alerts are not built yet. Gold prices are from Twelve Data and bitcoin prices from the Kraken exchange (Coinbase as a backup); both can differ slightly from Exness. MT5 prices arrive in Stage ${STAGE_OF.mt5}. Bitcoin trades 24/7, so its signals can come at the weekend; its largest stop is $900 of price, which at 0.01 lot risks $9, the same as gold's $9 stop.</p>
+        <p class="panel-note">The engine reads price only. Check the <a class="inline-link" href="#/analysis">economic calendar</a> for high-impact US news before acting. Signal history and alerts are not built yet. Gold prices are from Twelve Data and bitcoin prices from the Kraken exchange (Coinbase as a backup); both can differ slightly from Exness. MT5 prices arrive in Stage ${STAGE_OF.mt5}. Bitcoin trades 24/7, so its signals can come at the weekend.</p>
       </section>`,
   });
 }

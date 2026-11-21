@@ -1,10 +1,10 @@
 // The markets the signal engine reads. Shared by the server and the website.
 //
 //   XAUUSD  gold, Twelve Data candles, trades about 23 hours a day on weekdays.
-//           1 pip = $0.10. 0.01 lot = 1 oz, so a $9 stop risks $9 at 0.01 lot.
+//           1 pip = $0.10.
 //   BTCUSD  bitcoin, Kraken exchange candles (free, no key), trades 24/7.
-//           Moves are counted in dollars of price. 0.01 lot = 0.01 BTC, so a
-//           $900 stop also risks $9 at 0.01 lot.
+//           Moves are counted in dollars of price. No dollar limit on the stop:
+//           it goes where the setup puts it.
 
 export const MARKETS = Object.freeze({
   XAUUSD: Object.freeze({
@@ -13,7 +13,7 @@ export const MARKETS = Object.freeze({
   }),
   BTCUSD: Object.freeze({
     symbol: 'BTCUSD', name: 'Bitcoin', long: 'Bitcoin vs US dollar',
-    alwaysOpen: true, maxStopUsd: 900, pip: 1, unit: 'usd',
+    alwaysOpen: true, maxStopUsd: Infinity, pip: 1, unit: 'usd',
   }),
 });
 

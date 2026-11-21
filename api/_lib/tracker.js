@@ -1,4 +1,4 @@
-// Follows a sent signal through the 15M candles that came after it.
+// Follows a sent signal through the 5M candles that came after it.
 // Pure, so it is unit tested. Gold pips: 1 pip = 0.10 dollars of price.
 // Bitcoin results are counted in dollars of price (its "pip" is $1).
 //

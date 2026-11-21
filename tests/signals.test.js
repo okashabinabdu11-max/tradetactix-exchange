@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { atr, pivots, closedOnly, tradingOnly, findLevels, findLiquidity, evaluate, INTERVAL_MS, PARAMS, findOrderBlocks, pressure, aggregate30 } from '../src/lib/signals.js';
+import { atr, pivots, closedOnly, tradingOnly, findLevels, findLiquidity, evaluate, INTERVAL_MS, PARAMS, findOrderBlocks, pressure, aggregate30, fifteenFromFive } from '../src/lib/signals.js';
 
 // Synthetic candles for testing the rules only. They are never shown in the app.
 const NOW = Date.UTC(2026, 10, 18, 12, 0, 0); // a Wednesday
@@ -186,7 +186,7 @@ test('a setup whose stop would be wider than the maximum is not a signal', () =>
 // Far from every 4H level: a red candle (the order block) before a strong move up,
 // a pullback that touches it, a break of the last swing high (MSS), then a pullback
 // into the Fib 0.5-0.618 zone of that move.
-const obCloses = [...Array(20).fill(4050), 4047, 4056, 4060, 4064, 4058, 4056, 4052, 4049, 4055, 4060, 4066, 4069, 4063, 4059];
+const obCloses = [...Array(20).fill(4050), 4047, 4056, 4060, 4064, 4058, 4056, 4052, 4049, 4055, 4060, 4066, 4069, 4063, 4057];
 const obShape = (i) => (i === 23 ? { h: 4066 } : null);
 
 test('order blocks, pressure and 30M candles', () => {
@@ -206,9 +206,42 @@ test('no level in play: order block, MSS and Fib pullback give a BUY with at lea
   assert.ok(r.stop < r.entry && r.target > r.entry);
   assert.ok(r.rr >= 3, `rr ${r.rr}`);
   const leg = r.fib.zero - r.fib.one;
-  assert.ok(Math.abs(r.stop - (r.fib.zero - leg * 0.786)) < 1e-6, 'stop at 0.786');
+  assert.equal(r.stop, r.fib.one, 'stop at Fib 1');
   assert.ok(Math.abs(r.target - (r.fib.zero + leg * 0.618)) < 1e-6, 'target at -0.618');
+  assert.ok(Math.abs(r.entry - (r.fib.zero - leg * 0.618)) < 1e-6, 'entry at 0.618');
+  assert.ok(Math.abs(r.rr - 1.236 / 0.382) < 1e-6, 'about 1:3.2');
   assert.ok(r.pressure > 0);
+});
+
+test('with the stop at Fib 1, a pullback that only reaches 0.5 (1:2.2) is skipped', () => {
+  const shallow = [...obCloses.slice(0, -1), 4059];
+  const r = evaluate({ h4: H4, h1: H1, m15: series(shallow, INTERVAL_MS['15min'], obShape), now: NOW, params: { ...PARAMS, maxStopUsd: 50 } });
+  assert.notEqual(r.state, 'buy');
+  assert.equal(r.state, 'waiting', 'it keeps waiting for 0.618');
+  assert.match(r.watch.looking.join(' '), /Fib 0\.618/);
+  assert.match(r.watch.seeing.join(' '), /reached Fib 0\.5/);
+});
+
+test('5M candles: the MSS and entry are read on 5M, and 15M is built from them', () => {
+  // Each 15M candle of the fixture split into three 5M candles (open, extreme leg, close).
+  const m15 = series(obCloses, INTERVAL_MS['15min'], obShape);
+  const m5 = m15.flatMap((c) => {
+    const t = Date.parse(c.t); const up = c.c >= c.o;
+    const mid = up ? c.l : c.h;
+    return [
+      { t: new Date(t).toISOString(), o: c.o, h: Math.max(c.o, mid), l: Math.min(c.o, mid), c: mid },
+      { t: new Date(t + 300e3).toISOString(), o: mid, h: up ? c.h : c.h, l: up ? c.l : c.l, c: (mid + c.c) / 2 },
+      { t: new Date(t + 600e3).toISOString(), o: (mid + c.c) / 2, h: Math.max((mid + c.c) / 2, c.c), l: Math.min((mid + c.c) / 2, c.c), c: c.c },
+    ];
+  });
+  const rebuilt = fifteenFromFive(m5);
+  assert.equal(rebuilt.length, m15.length);
+  assert.deepEqual([rebuilt[30].o, rebuilt[30].h, rebuilt[30].l, rebuilt[30].c], [m15[30].o, m15[30].h, m15[30].l, m15[30].c]);
+  assert.equal(fifteenFromFive(m5.slice(0, -1)).length, m15.length - 1, 'an unfinished 15M candle is left out');
+  const r = evaluate({ h4: H4, h1: H1, m5, now: NOW });
+  assert.equal(r.route, 'order-block');
+  assert.ok(['buy', 'waiting', 'no-setup'].includes(r.state));
+  if (r.state === 'buy') { assert.equal(r.stop, r.fib.one); assert.ok(r.rr >= 3); assert.equal(Date.parse(r.filledAt) - Date.parse(r.confirmedAt), 300e3, 'filled on a 5M candle'); }
 });
 
 test('order block touched but no structure shift yet: WAITING, says what it is looking for', () => {
