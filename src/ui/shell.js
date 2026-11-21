@@ -32,7 +32,7 @@ export function renderShell(root) {
     <div class="frame">
       <header class="topbar">
         <div class="topbar-brand">${brand}</div>
-        <div class="topbar-instrument"><strong>XAUUSD</strong><span>Gold vs US dollar</span></div>
+        <div class="topbar-instrument"><strong>XAUUSD · BTCUSD</strong><span>Gold and bitcoin signals</span></div>
         ${tradingChip}
         ${langToggle()}
         ${themeToggle()}

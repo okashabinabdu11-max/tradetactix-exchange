@@ -5,6 +5,7 @@
 // Each post is claimed in the database first, so it goes out once.
 
 import { serverRpc, telegram, SITE_URL } from './telegram.js';
+import { moveText } from '../../src/lib/markets.js';
 
 export const CHANNEL = process.env.TELEGRAM_CHANNEL || '@Tradetactix';
 export const ADMIN_TELEGRAM = 'Tradetactix1';
@@ -20,14 +21,26 @@ const fmtDay = (ms) => new Date(ms).toLocaleDateString('en-GB', { day: 'numeric'
 const fmtWhen = (iso) => new Date(iso).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Addis_Ababa' });
 const pipsText = (p) => { const n = Math.round(Number(p) || 0); return `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(n).toLocaleString('en-US')} pips`; };
 
-export function weeklyMessage(s, fromMs, toMs) {
+const counted = (s) => !!s && (s.wins + s.losses + s.breakeven) > 0;
+const statLines = (s, symbol) => {
   const decided = s.wins + s.losses;
+  return [
+    decided ? `Win rate: <b>${Math.round((s.wins / decided) * 100)}%</b>` : 'Win rate: —',
+    `✅ TP: <b>${s.wins}</b> · ❌ SL: <b>${s.losses}</b>${s.breakeven ? ` · ⚪ BE: <b>${s.breakeven}</b>` : ''}`,
+    symbol === 'BTCUSD' ? `Price move: <b>${moveText('BTCUSD', s.pips, true)}</b>` : `Pips: <b>${pipsText(s.pips)}</b>`,
+  ];
+};
+
+/** `btc` is bitcoin's results; when it has none, the message is gold only, as before. */
+export function weeklyMessage(s, fromMs, toMs, btc = null) {
+  const both = counted(btc);
+  const body = both
+    ? [...(counted(s) ? ['🥇 <b>XAUUSD</b>', ...statLines(s, 'XAUUSD'), ''] : []), '₿ <b>BTCUSD</b>', ...statLines(btc, 'BTCUSD')]
+    : statLines(s, 'XAUUSD');
   return [
     `📊 <b>TradeTactix weekly results</b> (${fmtDay(fromMs)} – ${fmtDay(toMs)})`,
     '',
-    decided ? `Win rate: <b>${Math.round((s.wins / decided) * 100)}%</b>` : 'Win rate: —',
-    `✅ TP: <b>${s.wins}</b> · ❌ SL: <b>${s.losses}</b>${s.breakeven ? ` · ⚪ BE: <b>${s.breakeven}</b>` : ''}`,
-    `Pips: <b>${pipsText(s.pips)}</b>`,
+    ...body,
     '',
     'Every signal is counted automatically when it hits TP, SL or breakeven. Past results do not guarantee future results.',
     `Get signals: ${esc(SITE_URL)}`,
@@ -39,7 +52,7 @@ export function reminderMessage(row, now) {
   return `⏳ Your TradeTactix signal access ends <b>in ${hours} hour${hours === 1 ? '' : 's'}</b> (${esc(fmtWhen(row.pro_until))}, Ethiopia time).\n\nTo keep getting signals, message the admin to renew: @${ADMIN_TELEGRAM}`;
 }
 
-export function dailyMessage(n, s, expiring, now) {
+export function dailyMessage(n, s, expiring, now, btc = null) {
   const lines = [
     `🗓 <b>Daily report</b> · ${esc(fmtWhen(new Date(now).toISOString()).replace(/,? \d\d:\d\d$/, ''))}`,
     '',
@@ -49,6 +62,7 @@ export function dailyMessage(n, s, expiring, now) {
     `Signals sent (24h): <b>${n.signals_sent}</b>`,
     `Results (24h): ✅ ${s.wins} · ❌ ${s.losses} · ⚪ ${s.breakeven} · ${pipsText(s.pips)}`,
   ];
+  if (btc) lines.push(`BTCUSD (24h): ✅ ${btc.wins} · ❌ ${btc.losses} · ⚪ ${btc.breakeven} · ${moveText('BTCUSD', btc.pips, true)}`);
   if (expiring.length) {
     lines.push('', `Access ending within 24h (${expiring.length}):`);
     for (const e of expiring.slice(0, 15)) lines.push(`• ${esc(e.email || 'member')}: ${esc(fmtWhen(e.pro_until))}`);
@@ -64,6 +78,14 @@ export function weekKey(now) {
   return new Date(Date.UTC(e.y, e.m, e.day - back)).toISOString().slice(0, 10);
 }
 
+/** Bitcoin results since a time; null before the database has the bitcoin update. */
+async function btcStats(sinceMs) {
+  try {
+    const [r] = (await serverRpc('alerts_period_stats', { p_since: new Date(sinceMs).toISOString(), p_symbol: 'BTCUSD' })) || [];
+    return r ? { wins: Number(r.wins) || 0, losses: Number(r.losses) || 0, breakeven: Number(r.breakeven) || 0, pips: Number(r.pips) || 0 } : null;
+  } catch { return null; }
+}
+
 const one = async (fn) => { try { return await fn(); } catch (err) { return { error: String(err?.message || err).slice(0, 120) }; } };
 
 export async function runReports({ now = Date.now() } = {}) {
@@ -77,9 +99,10 @@ export async function runReports({ now = Date.now() } = {}) {
       if (!(await serverRpc('alerts_claim_post', { p_kind: 'weekly', p_key: key }))) return 'already sent';
       const from = now - 7 * 86400e3;
       const s = ((await serverRpc('alerts_period_stats', { p_since: new Date(from).toISOString() })) || [])[0] || { wins: 0, losses: 0, breakeven: 0, pips: 0 };
-      if (s.wins + s.losses + s.breakeven === 0) return 'no closed signals this week';
+      const btc = await btcStats(from);
+      if (!counted(s) && !counted(btc)) return 'no closed signals this week';
       try {
-        await telegram('sendMessage', { chat_id: CHANNEL, text: weeklyMessage(s, from, now), parse_mode: 'HTML', disable_web_page_preview: true });
+        await telegram('sendMessage', { chat_id: CHANNEL, text: weeklyMessage(s, from, now, btc), parse_mode: 'HTML', disable_web_page_preview: true });
         return 'sent';
       } catch (err) {
         await serverRpc('alerts_release_post', { p_kind: 'weekly', p_key: key }).catch(() => {}); // try again next run
@@ -110,7 +133,7 @@ export async function runReports({ now = Date.now() } = {}) {
       const [n] = (await serverRpc('alerts_daily_numbers', {})) || [];
       const [s] = (await serverRpc('alerts_period_stats', { p_since: new Date(now - 86400e3).toISOString() })) || [];
       const expiring = (await serverRpc('alerts_expiring', {})) || [];
-      const text = dailyMessage(n, s || { wins: 0, losses: 0, breakeven: 0, pips: 0 }, expiring, now);
+      const text = dailyMessage(n, s || { wins: 0, losses: 0, breakeven: 0, pips: 0 }, expiring, now, await btcStats(now - 86400e3));
       let sent = 0;
       for (const a of (await serverRpc('alerts_admin_chats', {})) || []) {
         await telegram('sendMessage', { chat_id: a.chat_id, text, parse_mode: 'HTML', disable_web_page_preview: true }).then(() => { sent += 1; }).catch(() => {});

@@ -8,31 +8,39 @@ import { escapeHtml } from '../lib/format.js';
 import { profilePage, signedOutMarkup, setPasswordMarkup, mountSetPassword } from './profile.js';
 import { needsPassword, signInWithGoogle } from '../services/backend.js';
 import { getSignalStats } from '../services/backend.js';
+import { moveText } from '../lib/markets.js';
 import { themeToggle } from '../ui/theme.js';
 import { t, langToggle } from '../lib/i18n.js';
 
 const CHANNEL = 'https://t.me/Tradetactix';
 
 // One card per period. Win rate = TP / (TP + SL); breakeven closes are listed, not counted.
-function statCard(title, s) {
+function statCard(title, s, symbol = null) {
   const decided = s.wins + s.losses;
   const pips = Math.round(Number(s.pips) || 0);
   const total = decided + s.breakeven;
   return `
     <div class="stat-card">
-      <h3>${t(title)}</h3>
+      <h3>${symbol ? `${symbol} · ` : ''}${t(title)}</h3>
       ${total === 0
         ? `<p class="stat-rate is-empty">—</p><p class="stat-line">${t('No signals closed yet in this period.')}</p>`
         : `<p class="stat-rate">${decided ? `${Math.round((s.wins / decided) * 100)}%` : '—'}<span>${t('win rate')}</span></p>
            <p class="stat-line"><span class="tone-green">${s.wins} TP</span> · <span class="tone-red">${s.losses} SL</span>${s.breakeven ? ` · <span class="tone-blue">${s.breakeven} BE</span>` : ''}</p>
-           <p class="stat-line">${pips > 0 ? '+' : pips < 0 ? '−' : ''}${Math.abs(pips)} pips</p>`}
+           <p class="stat-line">${symbol === 'BTCUSD' ? moveText('BTCUSD', pips, true) : `${pips > 0 ? '+' : pips < 0 ? '−' : ''}${Math.abs(pips)} pips`}</p>`}
     </div>`;
 }
 
-function statsMarkup(rows) {
-  const by = Object.fromEntries((rows || []).map((r) => [r.period, { wins: Number(r.wins) || 0, losses: Number(r.losses) || 0, breakeven: Number(r.breakeven) || 0, pips: r.pips }]));
-  const zero = { wins: 0, losses: 0, breakeven: 0, pips: 0 };
-  return statCard('Last 7 days', by.week || zero) + statCard('Last 30 days', by.month || zero);
+const byPeriod = (rows) => Object.fromEntries((rows || []).map((r) => [r.period, { wins: Number(r.wins) || 0, losses: Number(r.losses) || 0, breakeven: Number(r.breakeven) || 0, pips: r.pips }]));
+const ZERO = { wins: 0, losses: 0, breakeven: 0, pips: 0 };
+
+/** Gold results; bitcoin's are added once bitcoin has closed signals in the last 30 days. */
+function statsMarkup(rows, btcRows = null) {
+  const gold = byPeriod(rows);
+  const btc = byPeriod(btcRows);
+  const btcCount = btc.month ? btc.month.wins + btc.month.losses + btc.month.breakeven : 0;
+  if (!btcCount) return statCard('Last 7 days', gold.week || ZERO) + statCard('Last 30 days', gold.month || ZERO);
+  return statCard('Last 7 days', gold.week || ZERO, 'XAUUSD') + statCard('Last 30 days', gold.month || ZERO, 'XAUUSD')
+    + statCard('Last 7 days', btc.week || ZERO, 'BTCUSD') + statCard('Last 30 days', btc.month || ZERO, 'BTCUSD');
 }
 
 const STAGES = [
@@ -70,7 +78,7 @@ export function homePage() {
        <a class="button button-quiet" href="#/dashboard" id="home-dashboard">${t(`Dashboard`)}</a>`;
 
   return {
-    title: 'Gold signals',
+    title: 'Gold and bitcoin signals',
     html: `
       <header class="home-bar">
         <a class="brand" href="#/home" aria-label="TradeTactix home"><span class="brand-mark" aria-hidden="true">T</span><span class="brand-name">TradeTactix</span></a>
@@ -82,9 +90,9 @@ export function homePage() {
       </header>
       <div class="home">
         <section class="home-hero">
-          <p class="home-pair">${t(`XAUUSD gold`)}</p>
-          <h1>${t(`Gold signals, sent straight to your Telegram.`)}</h1>
-          <p class="home-lede">${t(`TradeTactix reads gold on the 4H, 1H and 15M charts and sends a signal only when every step of the plan lines up, with entry, stop-loss and take-profit.`)}</p>
+          <p class="home-pair">${t(`XAUUSD gold`)} · ${t(`BTCUSD bitcoin`)}</p>
+          <h1>${t(`Gold and bitcoin signals, sent straight to your Telegram.`)}</h1>
+          <p class="home-lede">${t(`TradeTactix reads gold and bitcoin on the 4H, 1H and 15M charts and sends a signal only when every step of the plan lines up, with entry, stop-loss and take-profit.`)}</p>
           <div class="form-actions home-cta">${authButtons}</div>
           <ul class="home-stages" aria-label="What the signal screen shows">
             ${STAGES.map(([tone, text]) => `<li class="tone-${tone}"><span class="home-dot"></span>${t(text)}</li>`).join('')}
@@ -133,7 +141,7 @@ export function homePage() {
 
         <section class="home-help"><h2>${t(`Questions?`)}</h2><p>${t('Ask the AI assistant, or message the admin on Telegram at @Tradetactix1.')}</p><div class="form-actions"><a class="button button-quiet" href="#/support">${t(`Contact support`)}</a><a class="button button-quiet" href="https://t.me/Tradetactix1" target="_blank" rel="noopener">Telegram @Tradetactix1</a></div></section>
 
-        <p class="home-foot">${t(`Signals are a rules-based reading of the chart, not financial advice. Trading gold carries a real risk of loss. Live trading is not connected.`)}</p>
+        <p class="home-foot">${t(`Signals are a rules-based reading of the chart, not financial advice. Trading gold and bitcoin carries a real risk of loss. Live trading is not connected.`)}</p>
       </div>`,
     mount(root) {
       // Open Account buttons jump to the form.
@@ -162,10 +170,10 @@ export function homePage() {
         const ev = window.__installPrompt; if (!ev) return;
         ev.prompt(); await ev.userChoice.catch(() => null); window.__installPrompt = null; installBtn.hidden = true;
       });
-      getSignalStats().then((res) => {
+      Promise.all([getSignalStats(), getSignalStats('BTCUSD').catch(() => ({ ok: false }))]).then(([res, btc]) => {
         const grid = root.querySelector('#stat-grid');
         if (!alive || !grid) return;
-        grid.innerHTML = res.ok ? statsMarkup(res.data) : `<p class="result-empty">${t('Results are not available right now.')}</p>`;
+        grid.innerHTML = res.ok ? statsMarkup(res.data, btc.ok ? btc.data : null) : `<p class="result-empty">${t('Results are not available right now.')}</p>`;
       });
       const formCleanup = root.querySelector('#auth-form') ? profilePage().mount(root) : null;
       return () => { alive = false; root.removeEventListener('click', onClick); if (typeof formCleanup === 'function') formCleanup(); };

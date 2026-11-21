@@ -9,13 +9,15 @@
 // A finished trade stays on screen for 12 hours, then the page goes back to
 // "Wait — the market setup is analyzing". Expired trades are never shown.
 
-import { PIP } from './tracker.js';
+import { marketOf } from '../../src/lib/markets.js';
 
 export const SHOW_RESULT_MS = 12 * 3600e3;
 
 export function tradeView(row, livePrice, now = Date.now()) {
   if (!row || !['open', 'tp', 'sl', 'be'].includes(row.status)) return null;
+  const symbol = marketOf(row.symbol).symbol;
   const base = {
+    symbol,
     key: row.signal_key,
     direction: row.direction,
     entry: Number(row.entry),
@@ -31,7 +33,7 @@ export function tradeView(row, livePrice, now = Date.now()) {
       ...base,
       status: row.be_sent_at ? 'be-moved' : 'running',
       price: ok ? livePrice : null,
-      pips: ok ? Math.round(((livePrice - base.entry) * dir) / PIP) : null,
+      pips: ok ? Math.round(((livePrice - base.entry) * dir) / marketOf(symbol).pip) : null,
     };
   }
   const closed = Date.parse(row.closed_at);

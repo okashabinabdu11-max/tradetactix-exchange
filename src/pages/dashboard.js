@@ -5,7 +5,8 @@ import { sessionStatus } from '../lib/sessions.js';
 import { icon } from '../ui/icons.js';
 import { session } from '../state/session.js';
 import { ratio, price } from '../lib/format.js';
-import { getQuote, marketState, getSignal, signalState } from '../services/market.js';
+import { getQuote, marketState, getSignal, signalState, selectedMarket } from '../services/market.js';
+import { marketSwitchMarkup, bindMarketSwitch } from '../ui/marketSwitch.js';
 import { verdictMarkup } from './signalView.js';
 import { listTrades } from '../services/backend.js';
 import { localDateKey } from '../lib/journal.js';
@@ -23,6 +24,7 @@ function verdictPanel() {
   return `
     <section class="panel verdict" aria-labelledby="verdict-state">
       <h1 class="visually-hidden">Dashboard</h1>
+      ${marketSwitchMarkup()}
       <div id="verdict-live" aria-live="polite">${verdictMarkup(signalState())}</div>
       <details class="states">
         <summary>The five states this panel can show</summary>
@@ -179,9 +181,10 @@ export function dashboardPage() {
       const mine = session.get().user ? session.get().riskSettings?.minRewardToRisk : null;
       const refreshSignal = async () => {
         const signal = await getSignal(mine ?? MIN_REWARD_TO_RISK);
-        if (alive) verdictBox.innerHTML = verdictMarkup(signal);
+        if (alive && signal.symbol === selectedMarket()) verdictBox.innerHTML = verdictMarkup(signal);
       };
       refreshSignal();
+      bindMarketSwitch(root, () => { verdictBox.innerHTML = verdictMarkup(signalState()); refreshSignal(); });
       const signalTimer = setInterval(() => { if (!document.hidden) refreshSignal(); }, 300000);
       const priceTimer = setInterval(() => { if (!document.hidden) refreshPrice(); }, 300000);
       // A real count from the user's own journal; it stays empty when signed out.

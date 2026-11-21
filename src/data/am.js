@@ -369,6 +369,13 @@ export const AM = {
   'Every indicator on the chart: EMA 50 and 200, Bollinger Bands, MACD, Stochastic, ATR': 'በቻርቱ ላይ ሁሉም ኢንዲኬተሮች፦ EMA 50 እና 200፣ Bollinger Bands፣ MACD፣ Stochastic፣ ATR',
   'Works on every pair and timeframe': 'በሁሉም ጥንዶች እና የጊዜ ክፍሎች ይሠራል',
   'Drawing tools stay free for everyone': 'የመሳያ መሣሪያዎች ለሁሉም ነጻ ሆነው ይቀጥላሉ',
+  'BTCUSD bitcoin': 'BTCUSD ቢትኮይን',
+  'Gold and bitcoin signals, sent straight to your Telegram.': 'የወርቅ እና የቢትኮይን ሲግናሎች፣ በቀጥታ ወደ ቴሌግራምዎ።',
+  'TradeTactix reads gold and bitcoin on the 4H, 1H and 15M charts and sends a signal only when every step of the plan lines up, with entry, stop-loss and take-profit.':
+    'TradeTactix ወርቅን እና ቢትኮይንን በ4H፣ 1H እና 15M ቻርቶች ያነባል፤ የእቅዱ እያንዳንዱ ደረጃ ሲሟላ ብቻ ሲግናል ይልካል፣ ከEntry፣ Stop-loss እና Take-profit ጋር።',
+  'Signals are a rules-based reading of the chart, not financial advice. Trading gold and bitcoin carries a real risk of loss. Live trading is not connected.':
+    'ሲግናሎች በሕግ ላይ የተመሠረተ የቻርት ንባብ ናቸው እንጂ የፋይናንስ ምክር አይደሉም። ወርቅ እና ቢትኮይን መገበያየት እውነተኛ የኪሳራ አደጋ አለው። ቀጥታ ግብይት አልተገናኘም።',
+  Market: 'ገበያ', Gold: 'ወርቅ', Bitcoin: 'ቢትኮይን', smashed: 'ተሳክቷል',
   'Looking for': 'የሚጠበቀው', 'Seeing now': 'አሁን የሚታየው', 'Wait — analyzing': 'ይጠብቁ — እየተተነተነ ነው', 'Reading the candles…': 'ካንድሎችን በማንበብ ላይ…',
   'A setup is forming and the engine is waiting for the last confirmation.': 'ሴታፕ እየተፈጠረ ነው፤ ሞተሩ የመጨረሻውን ማረጋገጫ እየጠበቀ ነው።',
 };

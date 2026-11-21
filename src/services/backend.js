@@ -237,9 +237,9 @@ export async function getAccessToken() {
   return data?.session?.access_token ?? null;
 }
 
-/** Win rate of the signals the bot sent: totals for the last 7 and 30 days. Readable by anyone. */
-export async function getSignalStats() {
-  const res = await call('signal_stats', {});
+/** Win rate of the signals the bot sent for one market: totals for the last 7 and 30 days. Readable by anyone. */
+export async function getSignalStats(symbol = 'XAUUSD') {
+  const res = await call('signal_stats', symbol === 'XAUUSD' ? {} : { p_symbol: symbol });
   return res.ok ? { ok: true, data: res.data || [] } : { ok: false };
 }
 

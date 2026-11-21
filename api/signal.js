@@ -1,8 +1,9 @@
-// GET /api/signal — the signal engine's reading, cut down to what the caller's
+// GET /api/signal?symbol=XAUUSD|BTCUSD — the signal engine's reading, cut down to what the caller's
 // plan allows. The engine runs here, on the server, so entry, stop and target
 // never reach a browser that is not entitled to them. It never places a trade.
 
-import { originOf, readSignal } from './_lib/engine.js';
+import { originOf, readMarket } from './_lib/engine.js';
+import { marketOf } from '../src/lib/markets.js';
 import { bearerToken, getEntitlement, useSignalPreview } from './_lib/access.js';
 import { gateSignal, signalKey } from './_lib/gate.js';
 import { serverRpc } from './_lib/telegram.js';
@@ -28,12 +29,14 @@ export default async function handler(req, res) {
   const token = bearerToken(req);
   const entitlement = await getEntitlement(token);
 
+  const market = marketOf(req.query?.symbol);
   let signal;
+  let m15 = [];
   try {
     const wanted = Number(req.query?.minrr);
-    signal = await readSignal(origin, Number.isFinite(wanted) ? Math.min(Math.max(wanted, 3), 20) : 3);
+    ({ signal, m15 } = await readMarket(origin, Number.isFinite(wanted) ? Math.min(Math.max(wanted, 3), 20) : 3, market.symbol));
   } catch (err) {
-    return send(res, 200, { state: 'offline', access: entitlement.signed_in ? (entitlement.shows_levels ? 'full' : 'limited') : 'anonymous', reason: 'The market is closed or price data is unavailable.', readAt });
+    return send(res, 200, { symbol: market.symbol, state: 'offline', access: entitlement.signed_in ? (entitlement.shows_levels ? 'full' : 'limited') : 'anonymous', reason: 'The market is closed or price data is unavailable.', readAt });
   }
 
   const isTrade = signal.state === 'buy' || signal.state === 'sell';
@@ -46,17 +49,22 @@ export default async function handler(req, res) {
     body.previews = { used: entitlement.previews_used ?? null, limit: entitlement.previews_limit ?? null };
   }
   // Approved members also see the signal that is running now, or how the last one ended.
-  if (entitlement.shows_levels) body.trade = await latestTrade(origin, signal.price);
+  if (entitlement.shows_levels) body.trade = await latestTrade(origin, market.symbol, signal.price, m15);
   return send(res, 200, { ...body, plan: entitlement.plan, readAt });
 }
 
-async function latestTrade(origin, fallbackPrice) {
+async function latestTrade(origin, symbol, fallbackPrice, m15) {
   try {
-    const rows = await serverRpc('alerts_latest_trade', {});
+    // Gold calls the function as before, so it keeps working before the bitcoin database update.
+    const rows = await serverRpc('alerts_latest_trade', symbol === 'XAUUSD' ? {} : { p_symbol: symbol });
     const row = Array.isArray(rows) ? rows[0] : null;
-    if (!row) return null;
+    if (!row || (row.symbol || 'XAUUSD') !== symbol) return null;
     let live = null;
-    if (row.status === 'open') {
+    if (row.status === 'open' && symbol !== 'XAUUSD') {
+      // Bitcoin: the newest exchange candle's price (the candles are cached for a few minutes).
+      const last = m15[m15.length - 1];
+      live = Number.isFinite(last?.c) ? last.c : Number.isFinite(fallbackPrice) ? fallbackPrice : null;
+    } else if (row.status === 'open') {
       // The live quote (cached for 5 minutes); the last 15M close if it is unavailable.
       const q = await fetch(`${origin}/api/quote`, { signal: AbortSignal.timeout(5000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
       live = Number.isFinite(q?.price) ? q.price : Number.isFinite(fallbackPrice) ? fallbackPrice : null;

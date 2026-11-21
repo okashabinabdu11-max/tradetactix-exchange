@@ -1035,3 +1035,12 @@ html.chart-full-open, html.chart-full-open body { overflow: hidden; }
 .watch-col h3 { margin: 0 0 6px; font-size: 13px; color: var(--muted); font-weight: 700; }
 .watch-col ul { margin: 0; padding-left: 18px; }
 .watch-col li { margin: 4px 0; font-size: 15px; line-height: 1.45; }
+
+/* Market switch: XAUUSD / BTCUSD above the signal */
+.market-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 14px; max-width: 420px; }
+.market-btn { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 52px; padding: 8px 14px; border: 1px solid var(--line); border-radius: var(--r-md); background: transparent; color: var(--muted); font: inherit; cursor: pointer; text-align: left; }
+.market-btn strong { font-family: var(--font-display); font-size: 20px; letter-spacing: 0.02em; color: var(--text); line-height: 1; }
+.market-btn span { font-size: 13px; }
+.market-btn[aria-pressed="true"] { border-color: var(--gold); background: var(--gold-dim); color: var(--text); }
+.market-btn:hover { border-color: var(--muted); }
+.market-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }

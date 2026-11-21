@@ -5,6 +5,7 @@
 import { TIMEFRAMES, SIGNAL_STATES, TRADE_STATES } from '../data/plan.js';
 import { price, ratio, escapeHtml } from '../lib/format.js';
 import { t, lang } from '../lib/i18n.js';
+import { marketOf, moveUnits, moveText } from '../lib/markets.js';
 
 // Status reasons are built from fixed sentences: translate each one that is known.
 const translateReason = (r) => (lang() === 'am' ? String(r).split(/(?<=\.)\s+/).map((x) => t(x)).join(' ') : r);
@@ -47,6 +48,8 @@ function watchMarkup(signal) {
 
 function tradeBlock(signal) {
   const isTrade = signal.state === 'buy' || signal.state === 'sell';
+  const m = marketOf(signal.symbol);
+  const move = (d) => moveText(m, moveUnits(m, Math.abs(d)));
   if (isTrade && signal.entry != null) {
     return `
       <dl class="signal-levels">
@@ -55,10 +58,10 @@ function tradeBlock(signal) {
         <div><dt>Take-profit</dt><dd>${price(signal.target)}</dd></div>
         <div><dt>Reward-to-risk</dt><dd>${ratio(Math.floor(signal.rr * 10) / 10)}</dd></div>
       </dl>
-      <p class="signal-basis"><strong>Risk ${Math.round(Math.abs(signal.entry - signal.stop) * 10)} pips, reward ${Math.round(Math.abs(signal.target - signal.entry) * 10)} pips.</strong> ${signal.setup === 'order-block' && signal.entryZone
+      <p class="signal-basis"><strong>Risk ${move(signal.entry - signal.stop)}, reward ${move(signal.target - signal.entry)}${m.unit === 'usd' ? ' of price' : ''}.</strong> ${signal.setup === 'order-block' && signal.entryZone
         ? `Entry is in the Fib 0.5–0.618 zone ${price(signal.entryZone[0])}–${price(signal.entryZone[1])}, filled at ${time(signal.confirmedAt)}. Stop at Fib 0.786.`
         : `Entry is the close of the confirming candle at ${time(signal.confirmedAt)}.`} Target: ${escapeHtml(signal.targetBasis || '')}. If price has already moved away from the entry, the signal is no longer valid.</p>
-      <a class="button button-primary" href="#/risk">Size this trade</a>`;
+      ${m.symbol === 'XAUUSD' ? '<a class="button button-primary" href="#/risk">Size this trade</a>' : ''}`;
   }
   if (isTrade) {
     return `
@@ -80,17 +83,19 @@ function tradeBlock(signal) {
 
 const signedPips = (n) => (n > 0 ? `+${n}` : n < 0 ? `−${Math.abs(n)}` : '0');
 
-// The signal that was sent, followed until it ends.
+// The signal that was sent, followed until it ends. Gold in pips, bitcoin in dollars of price.
 function tradeHead(tr) {
   const st = TRADE_STATES[tr.status];
   const dir = tr.direction === 'buy' ? 'BUY' : 'SELL';
   const label = tr.status === 'running' ? `${dir} ${t('running')}` : t(st.label);
+  const usd = marketOf(tr.symbol).unit === 'usd';
+  const amt = (n, words) => (usd ? `${moveText('BTCUSD', n, true)}${words ? ` ${t(words)}` : ''}` : `${signedPips(n)} ${t(words ? `pips ${words}` : 'pips')}`);
   let line;
-  if (tr.status === 'running') line = tr.pips == null ? t('Live price unavailable right now.') : `${signedPips(tr.pips)} ${t('pips running')}`;
-  else if (tr.status === 'be-moved') line = tr.pips == null ? `Stop → ${price(tr.entry)}` : `${signedPips(tr.pips)} ${t('pips running')}`;
-  else if (tr.status === 'tp') line = `${signedPips(tr.pips ?? 0)} ${t('pips smashed')}`;
-  else if (tr.status === 'sl') line = `${signedPips(tr.pips ?? 0)} ${t('pips')}`;
-  else line = `0 ${t('pips')}`;
+  if (tr.status === 'running') line = tr.pips == null ? t('Live price unavailable right now.') : amt(tr.pips, 'running');
+  else if (tr.status === 'be-moved') line = tr.pips == null ? `Stop → ${price(tr.entry)}` : amt(tr.pips, 'running');
+  else if (tr.status === 'tp') line = amt(tr.pips ?? 0, 'smashed');
+  else if (tr.status === 'sl') line = amt(tr.pips ?? 0, '');
+  else line = amt(0, '');
   const live = tr.status === 'running' || tr.status === 'be-moved';
   return `
       <p class="verdict-state is-long tone-${st.tone}" id="verdict-state">${escapeHtml(label)}</p>
@@ -125,7 +130,7 @@ export function verdictMarkup(signal) {
 
   return `
     <div class="verdict-head">
-      <p class="panel-kicker">${t('Signal engine')}</p>
+      <p class="panel-kicker">${t('Signal engine')}${signal?.symbol ? ` · ${escapeHtml(signal.symbol)}` : ''}</p>
       ${showTrade ? tradeHead(signal.trade) : `
       <p class="verdict-state ${label.length > 8 ? 'is-long' : ''} ${label.length > 20 ? 'is-sentence' : ''} tone-${loading ? 'yellow' : state.tone}" id="verdict-state">${escapeHtml(label)}</p>
       ${waitingNow ? watchMarkup(signal) : `<p class="verdict-meaning" id="verdict-reason">${escapeHtml(translateReason(reason))}</p>`}

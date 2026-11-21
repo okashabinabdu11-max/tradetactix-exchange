@@ -1,9 +1,9 @@
-// GET /api/candles?tf=4h|1h|15min&k=… — XAUUSD candles for the signal engine.
-// Server-side so the provider key stays private; cached per timeframe so the
-// free plan's daily limit is not exceeded.
+// GET /api/candles?tf=4h|1h|15min&symbol=XAUUSD|BTCUSD&k=… — candles for the signal engine.
+// XAUUSD from Twelve Data (server-side so the key stays private); BTCUSD from
+// public exchange data. Cached per timeframe so the free limits are not exceeded.
 
 import { timingSafeEqual } from 'node:crypto';
-import { normalizeSeries, TIMEFRAMES } from './_lib/candles.js';
+import { normalizeSeries, TIMEFRAMES, fetchBitcoinCandles } from './_lib/candles.js';
 
 const PROVIDER_URL = 'https://api.twelvedata.com/time_series';
 const send = (res, status, body, cacheSeconds) => {
@@ -30,6 +30,18 @@ export default async function handler(req, res) {
   const config = Object.hasOwn(TIMEFRAMES, tf) ? TIMEFRAMES[tf] : null;
   if (!config) return send(res, 400, { error: 'bad_timeframe' }, 300);
 
+  const symbol = String(req.query?.symbol || 'XAUUSD').toUpperCase();
+  if (symbol === 'BTCUSD') {
+    try {
+      const { source, candles } = await fetchBitcoinCandles(tf);
+      return send(res, 200, { symbol, timeframe: tf, source, fetchedAt: new Date().toISOString(), candles }, config.cacheSeconds);
+    } catch (err) {
+      console.error('bitcoin candles failed', tf, err?.error);
+      return send(res, err?.status === 400 ? 400 : 502, { error: err?.error || 'unreachable' }, 30);
+    }
+  }
+  if (symbol !== 'XAUUSD') return send(res, 400, { error: 'bad_symbol' }, 300);
+
   const key = process.env.TWELVEDATA_API_KEY;
   if (!key) return send(res, 503, { error: 'not_configured' }, 30);
 
@@ -41,7 +53,7 @@ export default async function handler(req, res) {
       console.error('candles provider error', tf, result.error);
       return send(res, result.status, { error: result.error }, 60);
     }
-    return send(res, 200, { timeframe: tf, source: 'Twelve Data', fetchedAt: new Date().toISOString(), candles: result.candles }, config.cacheSeconds);
+    return send(res, 200, { symbol, timeframe: tf, source: 'Twelve Data', fetchedAt: new Date().toISOString(), candles: result.candles }, config.cacheSeconds);
   } catch (err) {
     console.error('candles fetch failed', tf, err?.name);
     return send(res, 502, { error: 'unreachable' }, 30);

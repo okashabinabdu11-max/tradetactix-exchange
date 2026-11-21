@@ -23,11 +23,12 @@ export function publicWatch(signal) {
     : { looking: ['A support or resistance setup: a liquidity sweep, a retest of the level and a confirming close.'], seeing: [] };
 }
 
-export const signalKey = (s) => `${s.state}-${s.confirmedAt || s.asOf || ''}`.slice(0, 80);
+/** One key per signal. Gold keys keep their original form; other markets are prefixed. */
+export const signalKey = (s) => `${s.symbol && s.symbol !== 'XAUUSD' ? `${s.symbol}-` : ''}${s.state}-${s.confirmedAt || s.asOf || ''}`.slice(0, 80);
 
 export function gateSignal(signal, entitlement, preview = null) {
   const isTrade = signal.state === 'buy' || signal.state === 'sell';
-  const base = { state: signal.state, asOf: signal.asOf ?? null, timeframe: isTrade ? '15M' : null };
+  const base = { symbol: signal.symbol || 'XAUUSD', state: signal.state, asOf: signal.asOf ?? null, timeframe: isTrade ? '15M' : null };
 
   if (entitlement.shows_levels) {
     return {

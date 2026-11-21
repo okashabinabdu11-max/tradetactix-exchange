@@ -16,11 +16,16 @@
 //   0.786, take-profit at the -0.618 extension. Candle pressure (an estimated
 //   delta, since spot gold has no exchange volume) must agree with the move.
 //
-// Pure functions over candle arrays ({ t, o, h, l, c }, oldest first), so the
+// The same rules run on every market in markets.js (gold and bitcoin). Each
+// market sets its own largest stop and trading hours; bitcoin trades 24/7 and
+// its exchange candles carry real volume, which weights the delta estimate.
+//
+// Pure functions over candle arrays ({ t, o, h, l, c, v? }, oldest first), so the
 // whole engine is unit tested. It reads prices; it never places a trade.
 
 import { MIN_REWARD_TO_RISK } from './risk.js';
 import { isGoldMarketOpen } from './sessions.js';
+import { marketOf } from './markets.js';
 
 export const PARAMS = Object.freeze({
   pivotSpan: 2, // bars on each side that a swing point must beat
@@ -43,6 +48,12 @@ export const PARAMS = Object.freeze({
   fibTarget: -0.618,
   minPressure: 0.1, // estimated delta of the MSS leg, from -1 (all selling) to 1 (all buying)
 });
+
+/** The engine settings for one market: its own largest stop. */
+export function paramsFor(market) {
+  const m = typeof market === 'object' && market ? market : marketOf(market);
+  return m.maxStopUsd === PARAMS.maxStopUsd ? PARAMS : Object.freeze({ ...PARAMS, maxStopUsd: m.maxStopUsd });
+}
 
 export const INTERVAL_MS = { '4h': 4 * 3600e3, '1h': 3600e3, '30min': 1800e3, '15min': 900e3 };
 
@@ -142,13 +153,20 @@ export function aggregate30(c15) {
 /**
  * Estimated delta of candles, from -1 (sellers closed every candle at its low)
  * to 1 (buyers closed every candle at its high). Spot gold has no central
- * exchange volume, so this reads pressure from where each candle closed.
+ * exchange volume, so this reads pressure from where each candle closed. When
+ * every candle carries real traded volume (bitcoin), busier candles count more.
  */
 export function pressure(candles) {
   if (!candles.length) return 0;
+  const weighted = candles.every((c) => Number(c.v) > 0);
   let sum = 0;
-  for (const c of candles) sum += c.h > c.l ? (c.c - c.o) / (c.h - c.l) : 0;
-  return sum / candles.length;
+  let weight = 0;
+  for (const c of candles) {
+    const w = weighted ? Number(c.v) : 1;
+    sum += (c.h > c.l ? (c.c - c.o) / (c.h - c.l) : 0) * w;
+    weight += w;
+  }
+  return weight > 0 ? sum / weight : 0;
 }
 
 /**
@@ -362,14 +380,22 @@ function evaluateDirection(dir, { level, levels, liquidity, window, atr4, atr15,
 }
 
 /**
- * Reads the three timeframes and returns the engine's state.
+ * Reads the three timeframes of one market and returns the engine's state.
  * state: 'offline' | 'no-setup' | 'waiting' | 'buy' | 'sell'
+ * `market` is a symbol from markets.js (default XAUUSD); the result carries it.
  */
-export function evaluate({ h4, h1, m15, now = Date.now(), minRewardToRisk = MIN_REWARD_TO_RISK, params = PARAMS }) {
+export function evaluate({ market, params, ...rest }) {
+  const m = marketOf(market);
+  return { ...evaluateMarket({ ...rest, m, params: params || paramsFor(m) }), symbol: m.symbol };
+}
+
+function evaluateMarket({ h4, h1, m15, now = Date.now(), minRewardToRisk = MIN_REWARD_TO_RISK, params, m }) {
   const minRR = Math.max(MIN_REWARD_TO_RISK, Number(minRewardToRisk) || MIN_REWARD_TO_RISK);
-  const c4 = tradingOnly(closedOnly(h4 || [], INTERVAL_MS['4h'], now), INTERVAL_MS['4h']);
-  const c1 = tradingOnly(closedOnly(h1 || [], INTERVAL_MS['1h'], now), INTERVAL_MS['1h']);
-  const c15 = tradingOnly(closedOnly(m15 || [], INTERVAL_MS['15min'], now), INTERVAL_MS['15min']);
+  // Gold's data provider fills its closed hours with flat candles; bitcoin never closes.
+  const hours = (list, ms) => (m.alwaysOpen ? list : tradingOnly(list, ms));
+  const c4 = hours(closedOnly(h4 || [], INTERVAL_MS['4h'], now), INTERVAL_MS['4h']);
+  const c1 = hours(closedOnly(h1 || [], INTERVAL_MS['1h'], now), INTERVAL_MS['1h']);
+  const c15 = hours(closedOnly(m15 || [], INTERVAL_MS['15min'], now), INTERVAL_MS['15min']);
   if (c4.length < 30 || c1.length < 20 || c15.length < params.lookback15 + 14) {
     return { state: 'offline', reason: 'Not enough candle history to analyse yet.', checks: null };
   }

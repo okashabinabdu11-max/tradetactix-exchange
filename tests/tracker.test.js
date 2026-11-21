@@ -53,6 +53,6 @@ test('nothing for 48 hours expires', () => {
 test('messages say Put BE, TP Done, SL hit with the numbers', () => {
   assert.match(eventMessage(BUY, { event: 'be_move', pips: 80 }), /Put BE[\s\S]*breakeven at <b>4008.00<\/b>/);
   assert.match(eventMessage(BUY, { event: 'tp', pips: 240 }), /TP Done[\s\S]*\+240 pips smashed/);
-  assert.match(eventMessage(BUY, { event: 'sl', pips: -80 }), /SL hit[\s\S]*-80 pips/);
+  assert.match(eventMessage(BUY, { event: 'sl', pips: -80 }), /SL hit[\s\S]*[−-]80 pips/);
   assert.match(eventMessage(BUY, { event: 'be', pips: 0 }), /breakeven[\s\S]*0 pips/);
 });

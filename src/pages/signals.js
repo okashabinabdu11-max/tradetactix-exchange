@@ -1,4 +1,5 @@
-import { getSignal, signalState } from '../services/market.js';
+import { getSignal, signalState, selectedMarket } from '../services/market.js';
+import { marketSwitchMarkup, bindMarketSwitch } from '../ui/marketSwitch.js';
 import { session } from '../state/session.js';
 import { MIN_REWARD_TO_RISK } from '../lib/risk.js';
 import { ratio, escapeHtml } from '../lib/format.js';
@@ -16,15 +17,17 @@ function livePage({ title, intro, body }) {
     title,
     html: `
       <header class="page-head"><h1>${title}</h1><p>${intro}</p></header>
+      ${marketSwitchMarkup()}
       <div id="signal-view">${body(signalState())}</div>`,
     mount(root) {
       const box = root.querySelector('#signal-view');
       let alive = true;
       const refresh = async () => {
         const signal = await getSignal(myMinimum());
-        if (alive) box.innerHTML = body(signal);
+        if (alive && signal.symbol === selectedMarket()) box.innerHTML = body(signal);
       };
       refresh();
+      bindMarketSwitch(root, () => { box.innerHTML = body(signalState()); refresh(); });
       const timer = setInterval(() => { if (!document.hidden) refresh(); }, REFRESH_MS);
       return () => { alive = false; clearInterval(timer); };
     },
@@ -34,7 +37,7 @@ function livePage({ title, intro, body }) {
 export function signalsPage() {
   return livePage({
     title: 'Signals',
-    intro: `The current reading of XAUUSD against your plan, refreshed every five minutes. A signal needs every check to pass and at least ${ratio(myMinimum())}.`,
+    intro: `The current reading of XAUUSD (gold) or BTCUSD (bitcoin) against your plan, refreshed every five minutes. A signal needs every check to pass and at least ${ratio(myMinimum())}.`,
     body: (signal) => `
       <section class="panel verdict">${verdictMarkup(signal)}</section>
       <section class="panel rules">
@@ -45,7 +48,7 @@ export function signalsPage() {
           <li><strong>15M.</strong> After the sweep, price must return to the level and a candle must close back in the trade direction.</li>
           <li><strong>Risk.</strong> The stop goes just beyond the 15M retest and the 4H level, and is kept tight. The next 4H level must be at least ${ratio(myMinimum())} away, or there is no signal.</li>
         </ol>
-        <p class="panel-note">The engine reads price only. Check the <a class="inline-link" href="#/analysis">economic calendar</a> for high-impact US news before acting. Signal history and alerts are not built yet. Prices are from Twelve Data and can differ slightly from Exness; MT5 prices arrive in Stage ${STAGE_OF.mt5}.</p>
+        <p class="panel-note">The engine reads price only. Check the <a class="inline-link" href="#/analysis">economic calendar</a> for high-impact US news before acting. Signal history and alerts are not built yet. Gold prices are from Twelve Data and bitcoin prices from the Kraken exchange (Coinbase as a backup); both can differ slightly from Exness. MT5 prices arrive in Stage ${STAGE_OF.mt5}. Bitcoin trades 24/7, so its signals can come at the weekend; its largest stop is $900 of price, which at 0.01 lot risks $9, the same as gold's $9 stop.</p>
       </section>`,
   });
 }
@@ -138,6 +141,7 @@ export function analysisPage() {
         <h1>Analysis</h1>
         <p>The technical picture the signal engine is reading, then the scheduled events and news that move gold.</p>
       </header>
+      ${marketSwitchMarkup()}
       <div id="signal-view">${levelsBody(signalState())}</div>
 ${analysisOpen() ? `      <section class="panel fundamentals" aria-labelledby="outlook-h">
         <h2 id="outlook-h" class="panel-title">News outlook</h2>
@@ -159,9 +163,10 @@ ${analysisOpen() ? `      <section class="panel fundamentals" aria-labelledby="o
       let alive = true;
       const refresh = async () => {
         const signal = await getSignal(myMinimum());
-        if (alive) box.innerHTML = levelsBody(signal);
+        if (alive && signal.symbol === selectedMarket()) box.innerHTML = levelsBody(signal);
       };
       refresh();
+      bindMarketSwitch(root, () => { box.innerHTML = levelsBody(signalState()); refresh(); });
       const timer = setInterval(() => { if (!document.hidden) refresh(); }, REFRESH_MS);
       // The widgets are loaded once and left alone; only the levels above refresh.
       const outlook = root.querySelector('#news-outlook');

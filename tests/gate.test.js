@@ -145,7 +145,7 @@ test('signal endpoint: a broken entitlement check is treated as signed out', asy
   await signalHandler({ method: 'GET', headers: { host: 'example.test', authorization: `Bearer ${'t'.repeat(40)}` }, query: {} }, res);
   globalThis.fetch = realFetch; console.error = realError;
   assert.equal(res.body.access, 'anonymous');
-  assert.ok(urls.some((u) => u.includes('/api/candles?tf=4h&k=internal-secret-0123456789')));
+  assert.ok(urls.some((u) => u.includes('/api/candles?tf=4h&symbol=XAUUSD&k=internal-secret-0123456789')));
 });
 
 test('with free previews switched off, a free user is pointed to requesting access', () => {

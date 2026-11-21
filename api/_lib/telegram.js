@@ -46,6 +46,8 @@ export async function serverRpc(name, args) {
   return body;
 }
 
+import { marketOf, moveUnits, moveText } from '../../src/lib/markets.js';
+
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const p2 = (n) => Number(n).toFixed(2);
 
@@ -54,15 +56,17 @@ export function alertMessage(signal) {
   const buy = signal.state === 'buy';
   const when = new Date(new Date(signal.confirmedAt).getTime() + 15 * 60e3).toISOString().slice(11, 16);
   const role = buy ? 'support' : 'resistance';
+  const m = marketOf(signal.symbol);
+  const move = (d) => moveText(m, moveUnits(m, Math.abs(d)));
   return [
-    `${buy ? '🟢' : '🔴'} <b>XAUUSD ${buy ? 'BUY' : 'SELL'}</b>`,
+    `${buy ? '🟢' : '🔴'} <b>${m.symbol} ${buy ? 'BUY' : 'SELL'}</b>`,
     '',
     `Entry: <b>${p2(signal.entry)}</b>`,
     `Stop-loss: <b>${p2(signal.stop)}</b>`,
     `Take-profit: <b>${p2(signal.target)}</b>`,
     `Reward-to-risk: <b>1:${(Math.floor(signal.rr * 10) / 10).toFixed(1)}</b>`,
     '',
-    `Risk: <b>${Math.round(Math.abs(signal.entry - signal.stop) * 10)} pips</b> · Reward: <b>${Math.round(Math.abs(signal.target - signal.entry) * 10)} pips</b>`,
+    `Risk: <b>${move(signal.entry - signal.stop)}</b> · Reward: <b>${move(signal.target - signal.entry)}</b>${m.unit === 'usd' ? ' (price move)' : ''}`,
     '',
     signal.setup === 'order-block'
       ? `Order block touched · structure shifted ${buy ? 'up' : 'down'} · Fib pullback filled in the zone ${p2(signal.entryZone?.[0])}–${p2(signal.entryZone?.[1])} at ${when} UTC. Stop at Fib 0.786, target at −0.618.`
@@ -70,6 +74,6 @@ export function alertMessage(signal) {
     'If price has already moved away from the entry, this signal is no longer valid.',
     '',
     `<i>A rules-based reading of the plan, not financial advice. Check the chart before acting. No order is placed.</i>`,
-    esc(`${SITE_URL}/#/signals`),
+    esc(`${SITE_URL}/#/signals${m.symbol === 'XAUUSD' ? '' : `?m=${m.symbol}`}`),
   ].join('\n');
 }
