@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { atr, pivots, closedOnly, tradingOnly, findLevels, findLiquidity, evaluate, INTERVAL_MS, PARAMS } from '../src/lib/signals.js';
+import { atr, pivots, closedOnly, tradingOnly, findLevels, findLiquidity, evaluate, INTERVAL_MS, PARAMS, findOrderBlocks, pressure, aggregate30 } from '../src/lib/signals.js';
 
 // Synthetic candles for testing the rules only. They are never shown in the app.
 const NOW = Date.UTC(2026, 10, 18, 12, 0, 0); // a Wednesday
@@ -99,7 +99,10 @@ test('away from every level is NO SETUP', () => {
   const r = evaluate({ h4: H4, h1: H1, m15: far, now: NOW });
   assert.equal(r.state, 'no-setup');
   assert.equal(r.checks.h4.ok, false);
-  assert.match(r.reason, /away from the nearest 4H level/);
+  assert.match(r.reason, /is [\d.]+ away/);
+  assert.equal(r.route, 'order-block');
+  assert.ok(r.watch.looking.length && r.watch.seeing.length);
+  assert.ok(![...r.watch.looking, ...r.watch.seeing].some((x) => /\b(4H|1H|15M|30M|5M)\b/.test(x)), 'no timeframe names');
 });
 
 test('a confirmed setup with less than 1:3 to the next level is NO SETUP', () => {
@@ -176,4 +179,41 @@ test('a setup whose stop would be wider than the maximum is not a signal', () =>
   const loose = evaluate({ h4: H4, h1: H1, m15: wide, now: NOW, params: { ...PARAMS, maxStopUsd: 30 } });
   assert.equal(loose.state, 'buy');
   assert.ok(loose.entry - loose.stop > 9);
+});
+
+
+// ---------------------------------------------------------------- order-block route
+// Far from every 4H level: a red candle (the order block) before a strong move up,
+// a pullback that touches it, a break of the last swing high (MSS), then a pullback
+// into the Fib 0.5-0.618 zone of that move.
+const obCloses = [...Array(20).fill(4050), 4047, 4056, 4060, 4064, 4058, 4056, 4052, 4049, 4055, 4060, 4066, 4069, 4063, 4059];
+const obShape = (i) => (i === 23 ? { h: 4066 } : null);
+
+test('order blocks, pressure and 30M candles', () => {
+  const m15 = series(obCloses, INTERVAL_MS['15min'], obShape);
+  const blocks = findOrderBlocks(m15);
+  assert.ok(blocks.some((b) => b.dir === 'buy' && b.top === 4051 && b.bottom === 4046));
+  assert.equal(pressure([{ o: 1, h: 2, l: 1, c: 2 }]), 1);
+  assert.equal(pressure([{ o: 2, h: 2, l: 1, c: 1 }]), -1);
+  assert.equal(aggregate30(m15).length <= Math.ceil(m15.length / 2) + 1, true);
+});
+
+test('no level in play: order block, MSS and Fib pullback give a BUY with at least 1:3', () => {
+  const r = evaluate({ h4: H4, h1: H1, m15: series(obCloses, INTERVAL_MS['15min'], obShape), now: NOW });
+  assert.equal(r.state, 'buy', r.reason);
+  assert.equal(r.setup, 'order-block');
+  assert.ok(r.entry <= r.entryZone[0] + 1e-9 && r.entry >= r.entryZone[1] - 1e-9, 'entry inside the 0.5-0.618 zone');
+  assert.ok(r.stop < r.entry && r.target > r.entry);
+  assert.ok(r.rr >= 3, `rr ${r.rr}`);
+  const leg = r.fib.zero - r.fib.one;
+  assert.ok(Math.abs(r.stop - (r.fib.zero - leg * 0.786)) < 1e-6, 'stop at 0.786');
+  assert.ok(Math.abs(r.target - (r.fib.zero + leg * 0.618)) < 1e-6, 'target at -0.618');
+  assert.ok(r.pressure > 0);
+});
+
+test('order block touched but no structure shift yet: WAITING, says what it is looking for', () => {
+  const r = evaluate({ h4: H4, h1: H1, m15: series(obCloses.slice(0, 30), INTERVAL_MS['15min'], obShape), now: NOW });
+  assert.equal(r.state, 'waiting', r.reason);
+  assert.match(r.watch.looking.join(' '), /market structure shift/);
+  assert.match(r.watch.seeing.join(' '), /touched/);
 });

@@ -15,6 +15,14 @@ const flags = (checks) => (checks ? {
   m15: checks.m15 ? { ok: checks.m15.ok } : null,
 } : null);
 
+/** What the engine is looking for, without prices, for visitors who do not have Pro. */
+export function publicWatch(signal) {
+  if (!signal.route || signal.state === 'offline') return null;
+  return signal.route === 'order-block'
+    ? { looking: ['An order-block setup: price touches the block, structure shifts, then a pullback into the Fib entry zone.'], seeing: [] }
+    : { looking: ['A support or resistance setup: a liquidity sweep, a retest of the level and a confirming close.'], seeing: [] };
+}
+
 export const signalKey = (s) => `${s.state}-${s.confirmedAt || s.asOf || ''}`.slice(0, 80);
 
 export function gateSignal(signal, entitlement, preview = null) {
@@ -36,6 +44,11 @@ export function gateSignal(signal, entitlement, preview = null) {
       targetBasis: signal.targetBasis ?? null,
       confirmedAt: signal.confirmedAt ?? null,
       minRR: signal.minRR ?? null,
+      watch: signal.watch ?? null,
+      route: signal.route ?? null,
+      setup: signal.setup ?? null,
+      entryZone: signal.entryZone ?? null,
+      pressure: signal.pressure ?? null,
       levels: entitlement.shows_analysis ? (signal.levels || []).map((l) => ({ price: l.price, touches: l.touches })) : null,
       liquidity: entitlement.shows_analysis && signal.liquidity
         ? { high: signal.liquidity.high ? { price: signal.liquidity.high.price } : null, low: signal.liquidity.low ? { price: signal.liquidity.low.price } : null }
@@ -46,11 +59,11 @@ export function gateSignal(signal, entitlement, preview = null) {
   const generic = {
     offline: 'The market is closed or price data is unavailable.',
     'no-setup': NO_SETUP_TEXT,
-    waiting: 'Price is at a 4H level. Waiting for the 15M confirmation.',
+    waiting: 'A setup is forming. Waiting for the last confirmation.',
     'news-pause': 'No new signals 30 minutes before and after high-impact US news.',
   };
   if (!isTrade) {
-    return { ...base, access: entitlement.signed_in ? 'limited' : 'anonymous', reason: generic[signal.state] || generic.offline, checks: entitlement.signed_in ? flags(signal.checks) : null };
+    return { ...base, access: entitlement.signed_in ? 'limited' : 'anonymous', reason: generic[signal.state] || generic.offline, checks: entitlement.signed_in ? flags(signal.checks) : null, watch: publicWatch(signal) };
   }
   if (!entitlement.signed_in) {
     return { ...base, state: 'locked', timeframe: null, access: 'anonymous', reason: 'A signal is active. Sign in to see its direction.', checks: null };
@@ -71,7 +84,7 @@ export function gateSignal(signal, entitlement, preview = null) {
     access: 'limited',
     direction: signal.direction,
     checks: flags(signal.checks),
-    reason: `A ${signal.direction === 'buy' ? 'BUY' : 'SELL'} setup is confirmed on the 15M timeframe at a 4H level. Entry, stop-loss and take-profit are for Pro members.`,
+    reason: `A ${signal.direction === 'buy' ? 'BUY' : 'SELL'} setup is confirmed. Entry, stop-loss and take-profit are for Pro members.`,
     previews: { used: preview.used, limit: preview.limit },
   };
 }

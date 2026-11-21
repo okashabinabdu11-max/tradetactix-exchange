@@ -369,4 +369,6 @@ export const AM = {
   'Every indicator on the chart: EMA 50 and 200, Bollinger Bands, MACD, Stochastic, ATR': 'በቻርቱ ላይ ሁሉም ኢንዲኬተሮች፦ EMA 50 እና 200፣ Bollinger Bands፣ MACD፣ Stochastic፣ ATR',
   'Works on every pair and timeframe': 'በሁሉም ጥንዶች እና የጊዜ ክፍሎች ይሠራል',
   'Drawing tools stay free for everyone': 'የመሳያ መሣሪያዎች ለሁሉም ነጻ ሆነው ይቀጥላሉ',
+  'Looking for': 'የሚጠበቀው', 'Seeing now': 'አሁን የሚታየው', 'Wait — analyzing': 'ይጠብቁ — እየተተነተነ ነው', 'Reading the candles…': 'ካንድሎችን በማንበብ ላይ…',
+  'A setup is forming and the engine is waiting for the last confirmation.': 'ሴታፕ እየተፈጠረ ነው፤ ሞተሩ የመጨረሻውን ማረጋገጫ እየጠበቀ ነው።',
 };

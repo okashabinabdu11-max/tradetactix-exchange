@@ -33,6 +33,18 @@ function rung(tf, check) {
     </li>`;
 }
 
+/** What the engine is looking for and what it sees now, in plain words. */
+function watchMarkup(signal) {
+  const w = signal?.watch;
+  if (!w || (!w.looking?.length && !w.seeing?.length)) return '';
+  const list = (items) => items.map((x) => `<li>${escapeHtml(x)}</li>`).join('');
+  return `
+    <div class="watch">
+      ${w.looking?.length ? `<div class="watch-col"><h3>${t('Looking for')}</h3><ul>${list(w.looking)}</ul></div>` : ''}
+      ${w.seeing?.length ? `<div class="watch-col"><h3>${t('Seeing now')}</h3><ul>${list(w.seeing)}</ul></div>` : ''}
+    </div>`;
+}
+
 function tradeBlock(signal) {
   const isTrade = signal.state === 'buy' || signal.state === 'sell';
   if (isTrade && signal.entry != null) {
@@ -43,7 +55,9 @@ function tradeBlock(signal) {
         <div><dt>Take-profit</dt><dd>${price(signal.target)}</dd></div>
         <div><dt>Reward-to-risk</dt><dd>${ratio(Math.floor(signal.rr * 10) / 10)}</dd></div>
       </dl>
-      <p class="signal-basis"><strong>Risk ${Math.round(Math.abs(signal.entry - signal.stop) * 10)} pips, reward ${Math.round(Math.abs(signal.target - signal.entry) * 10)} pips.</strong> Entry is the close of the confirming 15M candle at ${time(signal.confirmedAt)}. Target: ${escapeHtml(signal.targetBasis || '')}. If price has already moved away from the entry, the signal is no longer valid.</p>
+      <p class="signal-basis"><strong>Risk ${Math.round(Math.abs(signal.entry - signal.stop) * 10)} pips, reward ${Math.round(Math.abs(signal.target - signal.entry) * 10)} pips.</strong> ${signal.setup === 'order-block' && signal.entryZone
+        ? `Entry is in the Fib 0.5–0.618 zone ${price(signal.entryZone[0])}–${price(signal.entryZone[1])}, filled at ${time(signal.confirmedAt)}. Stop at Fib 0.786.`
+        : `Entry is the close of the confirming candle at ${time(signal.confirmedAt)}.`} Target: ${escapeHtml(signal.targetBasis || '')}. If price has already moved away from the entry, the signal is no longer valid.</p>
       <a class="button button-primary" href="#/risk">Size this trade</a>`;
   }
   if (isTrade) {
@@ -97,8 +111,9 @@ export function verdictMarkup(signal) {
   const state = SIGNAL_STATES.find((s) => s.id === (signal?.state || 'offline')) || SIGNAL_STATES[0];
   const label = loading ? t('Checking') : t(state.label);
   // For "no setup" the headline already carries the fixed sentence; show only the detail under it.
-  let reason = loading ? t('Reading the 4H, 1H and 15M candles…') : (signal.reason || state.meaning);
-  if (!loading && signal.state === 'no-setup') reason = reason.replace(state.label, '').replace(/^[\s.—-]+/, '').trim() || state.meaning;
+  let reason = loading ? t('Reading the candles…') : (signal.reason || state.meaning);
+  if (!loading && signal.state === 'no-setup') reason = reason.replace('Wait — the market setup is analyzing.', '').replace(state.label, '').replace(/^[\s.—-]+/, '').trim() || state.meaning;
+  const waitingNow = !loading && ['no-setup', 'waiting'].includes(signal.state) && signal.watch;
   // A running or just-finished signal takes the headline, unless the engine has a newer one.
   const fresh = signal && (signal.state === 'buy' || signal.state === 'sell');
   const trd = signal?.trade;
@@ -113,12 +128,12 @@ export function verdictMarkup(signal) {
       <p class="panel-kicker">${t('Signal engine')}</p>
       ${showTrade ? tradeHead(signal.trade) : `
       <p class="verdict-state ${label.length > 8 ? 'is-long' : ''} ${label.length > 20 ? 'is-sentence' : ''} tone-${loading ? 'yellow' : state.tone}" id="verdict-state">${escapeHtml(label)}</p>
-      <p class="verdict-meaning" id="verdict-reason">${escapeHtml(translateReason(reason))}</p>
+      ${waitingNow ? watchMarkup(signal) : `<p class="verdict-meaning" id="verdict-reason">${escapeHtml(translateReason(reason))}</p>`}
       ${loading ? '' : tradeBlock(signal)}`}
     </div>
-    <ol class="ladder" aria-label="Timeframe checks, from highest to lowest">
+    ${waitingNow || signal?.setup === 'order-block' || showTrade ? '' : `<ol class="ladder" aria-label="Timeframe checks, from highest to lowest">
       ${TIMEFRAMES.map((tf, i) => rung(tf, loading || !signal.checks ? undefined : keys[i] ? checks[keys[i]] : undefined)).join('')}
-    </ol>
+    </ol>`}
     <p class="verdict-foot">${previews}${signal?.readAt ? `Read at ${time(signal.readAt)}. ` : ''}${t(DISCLAIMER)}</p>`;
 }
 

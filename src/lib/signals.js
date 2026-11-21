@@ -8,6 +8,14 @@
 //   Stop goes just beyond the 15M retest and the 4H level, never more than
 //   PARAMS.maxStopUsd from the entry. The target must offer at least 1:3.
 //
+// When no support or resistance is in play, an order-block setup is used:
+//   30M (or 15M) order block = the last opposite candle before a strong move.
+//   Price comes back and touches it, then a 15M market structure shift (MSS)
+//   breaks the last swing against the move. A Fib is drawn on that MSS leg
+//   (1 = the leg's start, 0 = its end): entry in the 0.5-0.618 zone, stop at
+//   0.786, take-profit at the -0.618 extension. Candle pressure (an estimated
+//   delta, since spot gold has no exchange volume) must agree with the move.
+//
 // Pure functions over candle arrays ({ t, o, h, l, c }, oldest first), so the
 // whole engine is unit tested. It reads prices; it never places a trade.
 
@@ -26,9 +34,17 @@ export const PARAMS = Object.freeze({
   // standard account this is also the most one trade can lose. A setup whose
   // stop would be wider is not a signal.
   maxStopUsd: 9,
+  // Order-block setup
+  obDisplacementAtr: 0.8, // the move away from an order block must be this many ATRs
+  obMaxAgeBars: 64, // order blocks older than this many 15M candles (16 hours) are ignored
+  touchLookback: 24, // the order-block touch must be within this many 15M candles (6 hours)
+  fibEntry: [0.5, 0.618], // entry zone, as Fib retracements of the MSS leg
+  fibStop: 0.786,
+  fibTarget: -0.618,
+  minPressure: 0.1, // estimated delta of the MSS leg, from -1 (all selling) to 1 (all buying)
 });
 
-export const INTERVAL_MS = { '4h': 4 * 3600e3, '1h': 3600e3, '15min': 900e3 };
+export const INTERVAL_MS = { '4h': 4 * 3600e3, '1h': 3600e3, '30min': 1800e3, '15min': 900e3 };
 
 /** Drops the candle that is still forming. */
 export function closedOnly(candles, intervalMs, now = Date.now()) {
@@ -102,6 +118,176 @@ export function findLiquidity(h1, before = Infinity, params = PARAMS) {
     return p ? { price: p.v, t: h1[p.i].t } : null;
   };
   return { high: lastOf('high', h1.map((c) => c.h)), low: lastOf('low', h1.map((c) => c.l)) };
+}
+
+
+// ---------------------------------------------------------------- order blocks
+
+/** Joins 15M candles into 30M candles on :00 and :30 boundaries. */
+export function aggregate30(c15) {
+  const out = [];
+  for (const c of c15) {
+    const t = new Date(c.t).getTime();
+    const start = Math.floor(t / 1800e3) * 1800e3;
+    const last = out[out.length - 1];
+    if (last && last._s === start) {
+      last.h = Math.max(last.h, c.h); last.l = Math.min(last.l, c.l); last.c = c.c;
+    } else {
+      out.push({ _s: start, t: new Date(start).toISOString(), o: c.o, h: c.h, l: c.l, c: c.c });
+    }
+  }
+  return out.map(({ _s, ...c }) => c);
+}
+
+/**
+ * Estimated delta of candles, from -1 (sellers closed every candle at its low)
+ * to 1 (buyers closed every candle at its high). Spot gold has no central
+ * exchange volume, so this reads pressure from where each candle closed.
+ */
+export function pressure(candles) {
+  if (!candles.length) return 0;
+  let sum = 0;
+  for (const c of candles) sum += c.h > c.l ? (c.c - c.o) / (c.h - c.l) : 0;
+  return sum / candles.length;
+}
+
+/**
+ * Order blocks: the last opposite candle before a strong move. A bullish block
+ * is a red candle followed, within three candles, by a close at least
+ * `obDisplacementAtr` ATRs above its high. A block that price later closed
+ * through is spent and dropped.
+ */
+export function findOrderBlocks(candles, params = PARAMS, tf = '15M') {
+  const a = atr(candles);
+  const out = [];
+  if (!(a > 0)) return out;
+  for (let i = 1; i < candles.length - 1; i += 1) {
+    const b = candles[i];
+    for (const dir of ['buy', 'sell']) {
+      const long = dir === 'buy';
+      if (long ? !(b.c < b.o) : !(b.c > b.o)) continue;
+      let formed = -1;
+      for (let j = i + 1; j <= Math.min(i + 3, candles.length - 1); j += 1) {
+        if (long ? candles[j].c - b.h >= a * params.obDisplacementAtr : b.l - candles[j].c >= a * params.obDisplacementAtr) { formed = j; break; }
+      }
+      if (formed === -1) continue;
+      const spent = candles.slice(formed + 1).some((c) => (long ? c.c < b.l : c.c > b.h));
+      if (spent) continue;
+      out.push({ dir, tf, top: b.h, bottom: b.l, t: b.t, formedAt: candles[formed].t });
+    }
+  }
+  return out;
+}
+
+const fibAt = (one, zero, x) => zero + (one - zero) * x; // 1 = leg start, 0 = leg end
+
+/**
+ * One order-block setup in one direction, read on the 15M candles.
+ * Returns how far it got: 1 found, 2 touched, 3 MSS, 4 in the entry zone.
+ */
+function obSetup(ob, c15, now, minRR, params) {
+  const long = ob.dir === 'buy';
+  const s = long ? 1 : -1;
+  const ms = (c) => new Date(c.t).getTime();
+  const formedEnd = new Date(ob.formedAt).getTime() + (ob.tf === '30M' ? 1800e3 : 900e3);
+  const res = { ob, dir: ob.dir, stage: 1 };
+  const startIdx = c15.findIndex((c) => ms(c) >= formedEnd);
+  if (startIdx === -1) return res;
+  const inZone = (c) => (long ? c.l <= ob.top : c.h >= ob.bottom);
+  const broke = (c) => (long ? c.c < ob.bottom : c.c > ob.top);
+  let touch = -1;
+  for (let i = startIdx; i < c15.length; i += 1) {
+    if (broke(c15[i])) return { ...res, spent: true };
+    if (inZone(c15[i])) { touch = i; break; }
+  }
+  if (touch === -1) return res;
+  if (touch < c15.length - params.touchLookback) return { ...res, stale: true };
+  res.stage = 2; res.touchAt = c15[touch].t;
+
+  // The swing the MSS must break: the last 15M swing against the move, before the touch.
+  const swings = pivots(c15.map((c) => (long ? c.h : c.l)), params.pivotSpan).filter((p) => p.kind === (long ? 'high' : 'low') && p.i < touch);
+  const swing = swings[swings.length - 1];
+  if (!swing) return { ...res, note: 'no swing' };
+  res.swing = swing.v;
+  let mss = -1;
+  for (let i = touch; i < c15.length; i += 1) {
+    if (broke(c15[i])) return { ...res, spent: true };
+    if (long ? c15[i].c > swing.v : c15[i].c < swing.v) { mss = i; break; }
+  }
+  if (mss === -1) return res;
+  res.stage = 3; res.mssAt = c15[mss].t;
+
+  // Fib on the MSS leg: 1 = the extreme reached in the order block, 0 = the end of the move.
+  let one = c15[touch][long ? 'l' : 'h'];
+  let oneIdx = touch;
+  for (let i = touch; i <= mss; i += 1) if ((c15[i][long ? 'l' : 'h'] - one) * s < 0) { one = c15[i][long ? 'l' : 'h']; oneIdx = i; }
+  let zero = one;
+  for (let i = oneIdx; i <= mss; i += 1) zero = long ? Math.max(zero, c15[i].h) : Math.min(zero, c15[i].l);
+  res.pressure = pressure(c15.slice(oneIdx, mss + 1));
+  const [z1, z2] = params.fibEntry;
+  for (let k = mss + 1; k < c15.length; k += 1) {
+    const c = c15[k];
+    const shallow = fibAt(one, zero, z1);
+    const deep = fibAt(one, zero, z2);
+    const stop = fibAt(one, zero, params.fibStop);
+    if (long ? c.l <= shallow : c.h >= shallow) {
+      if (long ? c.l <= stop : c.h >= stop) return { ...res, one, zero, failed: true };
+      const entry = (long ? c.l <= deep : c.h >= deep) ? deep : shallow;
+      const target = fibAt(one, zero, params.fibTarget);
+      const risk = (entry - stop) * s;
+      const rr = ((target - entry) * s) / risk;
+      const after = c15.slice(k + 1);
+      Object.assign(res, { stage: 4, one, zero, entry, stop, target, risk, rr, zone: [shallow, deep], confirmedAt: c.t });
+      if (after.some((x) => (long ? x.l <= stop : x.h >= stop))) return { ...res, failed: true };
+      if (k < c15.length - params.freshBars) return { ...res, expired: true };
+      return res;
+    }
+    zero = long ? Math.max(zero, c.h) : Math.min(zero, c.l);
+  }
+  Object.assign(res, { one, zero, zone: [fibAt(one, zero, z1), fibAt(one, zero, z2)], stop: fibAt(one, zero, params.fibStop), target: fibAt(one, zero, params.fibTarget) });
+  return res;
+}
+
+const P = (n) => Number(n).toFixed(2);
+
+/** The order-block route: the most advanced setup, from 30M blocks first, then 15M. */
+export function evaluateOrderBlocks({ c15, now, minRR, params = PARAMS }) {
+  const price = c15[c15.length - 1].c;
+  const recent = c15.slice(-params.obMaxAgeBars);
+  const blocks = [
+    ...findOrderBlocks(aggregate30(recent), params, '30M'),
+    ...findOrderBlocks(recent, params, '15M'),
+  ];
+  const setups = blocks.map((ob) => obSetup(ob, c15, now, minRR, params)).filter((x) => !x.spent && !x.stale && !x.failed);
+  const rank = (x) => x.stage * 10 + (x.ob.tf === '30M' ? 1 : 0) + (x.expired ? -5 : 0);
+  // Among untouched blocks prefer the closest to price.
+  const dist = (x) => Math.min(Math.abs(price - x.ob.top), Math.abs(price - x.ob.bottom));
+  setups.sort((a, b) => rank(b) - rank(a) || dist(a) - dist(b));
+  const best = setups[0];
+  if (!best) {
+    return { found: false, looking: ['A fresh order block: the last opposite candle before a strong move.'], seeing: [`Price ${P(price)}. No unused order block in the last 16 hours.`] };
+  }
+  const long = best.dir === 'buy';
+  const side = long ? 'bullish' : 'bearish';
+  const zoneTxt = `${P(Math.min(best.ob.top, best.ob.bottom))}–${P(Math.max(best.ob.top, best.ob.bottom))}`;
+  const out = { found: true, setup: best };
+  if (best.stage === 1) {
+    out.looking = [`Price to come back to the ${side} order block at ${zoneTxt}.`, `Then a market structure shift ${long ? 'up' : 'down'} before any entry.`];
+    out.seeing = [`Price ${P(price)}, ${P(dist(best))} away from the block.`];
+  } else if (best.stage === 2) {
+    out.looking = [`A market structure shift: a close ${long ? 'above' : 'below'} ${P(best.swing ?? price)}.`, 'Then a pullback into the Fib entry zone.'];
+    out.seeing = [`Price touched the ${side} order block at ${zoneTxt}.`, `Price now ${P(price)}.`];
+  } else if (best.stage === 3) {
+    out.looking = [`A pullback into the entry zone ${P(best.zone[0])}–${P(best.zone[1])} (Fib 0.5–0.618).`, `Stop ${P(best.stop)} (0.786), target ${P(best.target)} (−0.618).`];
+    out.seeing = [`Order block touched and structure shifted ${long ? 'up' : 'down'}.`, `Price now ${P(price)}. Candle pressure ${best.pressure >= 0 ? 'buying' : 'selling'} ${Math.round(Math.abs(best.pressure) * 100)}%.`];
+  } else if (best.expired) {
+    out.looking = ['A new order-block setup.'];
+    out.seeing = [`A ${long ? 'buy' : 'sell'} entry filled at ${P(best.entry)} earlier; that entry has passed.`];
+  } else {
+    out.looking = [];
+    out.seeing = [`Price pulled back into the entry zone ${P(best.zone[0])}–${P(best.zone[1])}.`];
+  }
+  return out;
 }
 
 function evaluateDirection(dir, { level, levels, liquidity, window, atr4, atr15, minRR, params }) {
@@ -202,22 +388,35 @@ export function evaluate({ h4, h1, m15, now = Date.now(), minRewardToRisk = MIN_
 
   const nearest = [...levels].sort((a, b) => Math.abs(a.price - price) - Math.abs(b.price - price))[0];
   const zone = atr4 * params.zoneAtr;
-  if (!nearest) {
-    return { ...base, state: 'no-setup', reason: 'The 4H line chart has no level that price has turned at twice.', checks: { h4: { ok: false, text: 'No level with two turns' }, h1: null, m15: null } };
-  }
-  const distance = Math.abs(nearest.price - price);
-  if (distance > zone) {
-    return {
-      ...base,
-      state: 'no-setup',
-      level: nearest,
-      reason: `Price is ${distance.toFixed(2)} away from the nearest 4H level at ${nearest.price.toFixed(2)}.`,
-      checks: {
-        h4: { ok: false, text: `Nearest level ${nearest.price.toFixed(2)}, ${distance.toFixed(2)} away` },
-        h1: liquidity.high || liquidity.low ? { ok: null, text: `High ${liquidity.high ? liquidity.high.price.toFixed(2) : 'n/a'}, low ${liquidity.low ? liquidity.low.price.toFixed(2) : 'n/a'}` } : null,
-        m15: null,
-      },
+  const distance = nearest ? Math.abs(nearest.price - price) : Infinity;
+  if (!nearest || distance > zone) {
+    // No support or resistance in play: use the order-block route.
+    const levelNote = nearest ? `Nearest ${nearest.price > price ? 'resistance' : 'support'} ${nearest.price.toFixed(2)} is ${distance.toFixed(2)} away.` : 'No support or resistance level with two turns.';
+    const ob = evaluateOrderBlocks({ c15, now, minRR, params });
+    const srChecks = {
+      h4: { ok: false, text: nearest ? `Nearest level ${nearest.price.toFixed(2)}, ${distance.toFixed(2)} away` : 'No level with two turns' },
+      h1: liquidity.high || liquidity.low ? { ok: null, text: `High ${liquidity.high ? liquidity.high.price.toFixed(2) : 'n/a'}, low ${liquidity.low ? liquidity.low.price.toFixed(2) : 'n/a'}` } : null,
+      m15: null,
     };
+    const watch = { looking: ob.looking || [], seeing: [...(ob.seeing || []), levelNote] };
+    const common = { ...base, level: nearest || null, checks: srChecks, watch, route: 'order-block' };
+    if (!ob.found) return { ...common, state: 'no-setup', reason: `${levelNote} No order-block setup either.` };
+    const x = ob.setup;
+    const long = x.dir === 'buy';
+    if (x.stage === 4 && !x.expired) {
+      const agrees = long ? x.pressure >= params.minPressure : x.pressure <= -params.minPressure;
+      if (!agrees) return { ...common, state: 'no-setup', direction: x.dir, reason: 'An order-block entry formed, but candle pressure did not agree with the move, so it was skipped.' };
+      if (x.risk > params.maxStopUsd + 1e-9) return { ...common, state: 'no-setup', direction: x.dir, reason: 'An order-block entry formed, but its stop-loss would be too wide, so it was skipped.' };
+      if (!(x.rr >= minRR - 1e-9)) return { ...common, state: 'no-setup', direction: x.dir, reason: `An order-block entry formed, but it only offers 1:${x.rr.toFixed(1)}.` };
+      return {
+        ...common, state: x.dir, direction: x.dir, setup: 'order-block',
+        entry: x.entry, stop: x.stop, target: x.target, rr: x.rr, confirmedAt: x.confirmedAt,
+        targetBasis: 'the −0.618 Fib extension of the structure-shift move',
+        entryZone: x.zone, fib: { one: x.one, zero: x.zero }, pressure: x.pressure, orderBlock: { top: x.ob.top, bottom: x.ob.bottom, tf: x.ob.tf },
+        reason: `Order block touched, structure shifted ${long ? 'up' : 'down'}, and price pulled back into the Fib entry zone.`,
+      };
+    }
+    return { ...common, state: x.stage >= 2 && !x.expired ? 'waiting' : 'no-setup', direction: x.dir, reason: [...watch.seeing.slice(0, 1), ...watch.looking.slice(0, 1).map((l) => `Looking for ${l.charAt(0).toLowerCase()}${l.slice(1)}`)].join(' ') };
   }
 
   const ctx = { level: nearest, levels, liquidity, window, atr4, atr15, minRR, params };
@@ -233,8 +432,18 @@ export function evaluate({ h4, h1, m15, now = Date.now(), minRewardToRisk = MIN_
     m15: { ok: best.confirm, text: best.confirm ? 'Retest confirmed' : best.retest ? 'Retested, no confirming close yet' : 'No retest yet' },
   };
 
+  const lvl = nearest.price.toFixed(2);
+  const watch = { looking: [], seeing: [`Price ${price.toFixed(2)} at ${role} ${lvl} (${nearest.touches} turns).`] };
+  if (best.pool !== undefined) watch.seeing.push(best.sweep ? `Liquidity ${best.direction === 'buy' ? 'below' : 'above'} ${best.pool.toFixed(2)} was swept.` : `Liquidity ${best.direction === 'buy' ? 'below' : 'above'} ${best.pool.toFixed(2)} is not swept yet.`);
+  if (!best.sweep) watch.looking.push(best.pool === undefined ? 'A clear swing high or low to form near the level.' : `Price to sweep the liquidity ${best.direction === 'buy' ? 'below' : 'above'} ${best.pool.toFixed(2)}.`);
+  else if (!best.retest) watch.looking.push(`Price to come back to the ${role} at ${lvl}.`);
+  else if (!best.confirm) watch.looking.push(`A candle to close back ${best.direction === 'buy' ? 'above' : 'below'} ${lvl}.`);
+  watch.looking.push('Then an entry with at least 1:3.');
+  base.watch = watch;
+  base.route = 'support-resistance';
+
   if (best.passed === 4) {
-    return { ...base, state: best.direction, level: nearest, checks, direction: best.direction, entry: best.entry, stop: best.stop, target: best.target, rr: best.rr, targetBasis: best.targetBasis, confirmedAt: best.confirmedAt, reason: `All checks passed at the 4H ${role} ${nearest.price.toFixed(2)}.` };
+    return { ...base, state: best.direction, setup: 'support-resistance', level: nearest, checks, direction: best.direction, entry: best.entry, stop: best.stop, target: best.target, rr: best.rr, targetBasis: best.targetBasis, confirmedAt: best.confirmedAt, reason: `All checks passed at the 4H ${role} ${nearest.price.toFixed(2)}.` };
   }
   if (best.expired) {
     checks.m15 = { ok: false, text: 'Confirmed earlier; that entry has passed' };

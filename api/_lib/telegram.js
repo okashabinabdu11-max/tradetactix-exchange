@@ -64,7 +64,9 @@ export function alertMessage(signal) {
     '',
     `Risk: <b>${Math.round(Math.abs(signal.entry - signal.stop) * 10)} pips</b> · Reward: <b>${Math.round(Math.abs(signal.target - signal.entry) * 10)} pips</b>`,
     '',
-    `4H ${role} ${p2(signal.level?.price)} · 1H liquidity swept · 15M close confirmed at ${when} UTC.`,
+    signal.setup === 'order-block'
+      ? `Order block touched · structure shifted ${buy ? 'up' : 'down'} · Fib pullback filled in the zone ${p2(signal.entryZone?.[0])}–${p2(signal.entryZone?.[1])} at ${when} UTC. Stop at Fib 0.786, target at −0.618.`
+      : `4H ${role} ${p2(signal.level?.price)} · 1H liquidity swept · 15M close confirmed at ${when} UTC.`,
     'If price has already moved away from the entry, this signal is no longer valid.',
     '',
     `<i>A rules-based reading of the plan, not financial advice. Check the chart before acting. No order is placed.</i>`,

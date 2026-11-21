@@ -29,12 +29,12 @@ export const TIMEFRAMES = [
 
 export const SIGNAL_STATES = [
   { id: 'offline', label: 'Offline', tone: 'muted', meaning: 'The market is closed or the price data cannot be read, so nothing is being analysed.' },
-  { id: 'no-setup', label: 'Wait — the market setup is analyzing', tone: 'yellow', meaning: 'When the setup is ready, the signal will be sent. No signal is ever made up to fill the gap.' },
+  { id: 'no-setup', label: 'Wait — analyzing', tone: 'yellow', meaning: 'When the setup is ready, the signal will be sent. No signal is ever made up to fill the gap.' },
   { id: 'locked', label: 'Signal active', tone: 'orange', meaning: 'A valid setup is confirmed. Your plan decides how much of it you can see.' },
   { id: 'news-pause', label: 'Paused for high-impact news', tone: 'yellow', meaning: 'No new signals 30 minutes before and after high-impact US news, when gold can jump in either direction.' },
-  { id: 'waiting', label: 'Waiting for confirmation', tone: 'yellow', meaning: 'A level is in play and the 15M retest has not confirmed yet.' },
-  { id: 'buy', label: 'Buy', tone: 'orange', meaning: 'All required timeframes agree on a long with at least 1:3 and a tight stop-loss.' },
-  { id: 'sell', label: 'Sell', tone: 'orange', meaning: 'All required timeframes agree on a short with at least 1:3 and a tight stop-loss.' },
+  { id: 'waiting', label: 'Wait — analyzing', tone: 'yellow', meaning: 'A setup is forming and the engine is waiting for the last confirmation.' },
+  { id: 'buy', label: 'Buy', tone: 'orange', meaning: 'Every check of the plan passed for a long, with at least 1:3 and a tight stop-loss.' },
+  { id: 'sell', label: 'Sell', tone: 'orange', meaning: 'Every check of the plan passed for a short, with at least 1:3 and a tight stop-loss.' },
 ];
 
 export const SECTIONS = [

@@ -1027,3 +1027,11 @@ html.chart-full-open, html.chart-full-open body { overflow: hidden; }
 .dcolor[aria-pressed="true"] { outline: 2px solid var(--text); outline-offset: 2px; }
 .draw-hint { margin: 0; font-size: 12.5px; color: var(--muted); }
 .chart-shell.is-full .draw-hint { display: none; }
+
+/* What the engine is looking for and seeing now */
+.watch { display: grid; grid-template-columns: 1fr; gap: 12px; margin: 10px 0 4px; }
+@media (min-width: 720px) { .watch { grid-template-columns: 1fr 1fr; } }
+.watch-col { border: 1px solid var(--line); border-radius: var(--r-md); padding: 12px 14px; }
+.watch-col h3 { margin: 0 0 6px; font-size: 13px; color: var(--muted); font-weight: 700; }
+.watch-col ul { margin: 0; padding-left: 18px; }
+.watch-col li { margin: 4px 0; font-size: 15px; line-height: 1.45; }
