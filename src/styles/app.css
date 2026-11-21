@@ -1044,3 +1044,5 @@ html.chart-full-open, html.chart-full-open body { overflow: hidden; }
 .market-btn[aria-pressed="true"] { border-color: var(--gold); background: var(--gold-dim); color: var(--text); }
 .market-btn:hover { border-color: var(--muted); }
 .market-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.trade-sym { font-weight: 700; font-size: 13px; letter-spacing: 0.03em; padding: 2px 8px; border: 1px solid var(--line); border-radius: var(--r-sm); color: var(--text); }
+.market-pick .dir { min-width: 92px; }

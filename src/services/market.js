@@ -10,12 +10,14 @@ const MESSAGES = {
   unreachable: 'The price provider could not be reached.',
 };
 
-let last = { status: 'idle', quote: null, message: null };
-export const marketState = () => last;
+const lastQuotes = {};
+/** The last quote read for a market (the selected one by default). */
+export const marketState = (symbol = selectedMarket()) => lastQuotes[symbol] || { status: 'idle', quote: null, message: null };
 
-export async function getQuote() {
+export async function getQuote(symbol = selectedMarket()) {
+  let last;
   try {
-    const res = await fetch('/api/quote', { headers: { Accept: 'application/json' } });
+    const res = await fetch(`/api/quote${symbol === 'XAUUSD' ? '' : `?symbol=${encodeURIComponent(symbol)}`}`, { headers: { Accept: 'application/json' } });
     const type = res.headers.get('content-type') || '';
     if (!type.includes('json')) throw new Error('not json');
     const body = await res.json();
@@ -27,6 +29,7 @@ export async function getQuote() {
   } catch {
     last = { status: 'error', quote: null, message: 'The price feed could not be reached.' };
   }
+  lastQuotes[symbol] = last;
   return last;
 }
 

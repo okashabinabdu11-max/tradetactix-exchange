@@ -20,3 +20,5 @@ export const NEWS_CONFIG = Object.freeze({
   width: '100%',
   height: '100%',
 });
+
+export const BTC_NEWS_CONFIG = Object.freeze({ ...NEWS_CONFIG, symbol: 'BITSTAMP:BTCUSD' });

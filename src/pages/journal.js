@@ -1,6 +1,8 @@
 import { session } from '../state/session.js';
 import { listTrades, saveTrade, deleteTrade } from '../services/backend.js';
 import { isSupabaseConfigured } from '../config.js';
+import { MARKET_LIST } from '../lib/markets.js';
+import { selectedMarket } from '../services/market.js';
 import { tradeMetrics, summarize, dailyResults, monthGrid, validateTrade, localDateKey, equityCurve, winRateWindows } from '../lib/journal.js';
 import { MIN_REWARD_TO_RISK } from '../lib/risk.js';
 import { usd, price, ratio, escapeHtml } from '../lib/format.js';
@@ -140,10 +142,15 @@ function formMarkup(trade) {
     </label>`;
   const check = (id, label, on) => `<label class="check"><input type="checkbox" name="${id}" ${on ? 'checked' : ''} /><span>${label}</span></label>`;
   const sell = t.direction === 'sell';
+  const sym = t.symbol || selectedMarket();
 
   return `
     <form class="panel trade-form" id="trade-form" novalidate>
       <h2 class="panel-title">${trade ? 'Edit trade' : 'Log a trade'}</h2>
+      <fieldset class="direction market-pick">
+        <legend class="field-label">Market</legend>
+        ${MARKET_LIST.map((m) => `<label><input type="radio" name="symbol" value="${m}" ${m === sym ? 'checked' : ''} /><span class="dir">${m}</span></label>`).join('')}
+      </fieldset>
       <fieldset class="direction">
         <legend class="field-label">Direction</legend>
         <label><input type="radio" name="direction" value="buy" ${sell ? '' : 'checked'} /><span class="dir dir-buy">Buy</span></label>
@@ -219,6 +226,7 @@ function tradeMarkup(t, minRR, confirmingDelete) {
   return `
     <li class="trade" data-id="${escapeHtml(t.id)}">
       <div class="trade-top">
+        <span class="trade-sym">${escapeHtml(t.symbol || 'XAUUSD')}</span>
         <span class="trade-dir dir-text-${t.direction}">${t.direction === 'buy' ? 'Buy' : 'Sell'}</span>
         <span class="trade-when">${when(t.openedAt)}</span>
         ${result}
@@ -348,6 +356,7 @@ export function journalPage() {
         const status = box.querySelector('#trade-status');
         const setStatus = (text, cls = '') => { status.textContent = text; status.className = `form-status ${cls}`; };
         const check = validateTrade({
+          symbol: f.symbol.value,
           direction: f.direction.value,
           openedAt: f.openedAt.value,
           closedAt: f.closedAt.value,

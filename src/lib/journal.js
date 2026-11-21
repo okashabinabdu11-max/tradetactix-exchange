@@ -2,7 +2,8 @@
 // calendar. Pure functions, unit tested. Every number comes from trades the
 // user recorded; nothing here invents data.
 
-import { MIN_REWARD_TO_RISK, XAUUSD_CONTRACT_OZ } from './risk.js';
+import { MIN_REWARD_TO_RISK } from './risk.js';
+import { MARKETS, marketOf } from './markets.js';
 
 const EPSILON = 1e-9;
 const sign = (t) => (t.direction === 'buy' ? 1 : -1);
@@ -19,7 +20,7 @@ export function tradeMetrics(t, minRewardToRisk = MIN_REWARD_TO_RISK) {
   let result = 'open';
   if (closed) {
     const move = (t.exitPrice - t.entryPrice) * sign(t);
-    grossPnl = move * t.lots * XAUUSD_CONTRACT_OZ;
+    grossPnl = move * t.lots * marketOf(t.symbol).contract; // gold 100 oz per lot, bitcoin 1 BTC per lot
     pnl = has(t.pnl) ? t.pnl : grossPnl; // prefer the broker's net figure when given
     rMultiple = riskPerOz > 0 ? move / riskPerOz : null;
     result = pnl > EPSILON ? 'win' : pnl < -EPSILON ? 'loss' : 'breakeven';
@@ -107,6 +108,7 @@ const validDate = (v) => v && !Number.isNaN(new Date(v).getTime());
 export function validateTrade(input) {
   const errors = [];
   const v = {
+    symbol: MARKETS[input.symbol] ? input.symbol : 'XAUUSD',
     direction: input.direction,
     openedAt: validDate(input.openedAt) ? new Date(input.openedAt).toISOString() : null,
     closedAt: validDate(input.closedAt) ? new Date(input.closedAt).toISOString() : null,
@@ -156,6 +158,7 @@ const n = (x) => (x === null || x === undefined ? null : Number(x));
 
 export const fromTradeRow = (row) => ({
   id: row.id,
+  symbol: MARKETS[row.symbol] ? row.symbol : 'XAUUSD',
   direction: row.direction,
   openedAt: row.opened_at,
   closedAt: row.closed_at,
@@ -174,6 +177,7 @@ export const fromTradeRow = (row) => ({
 });
 
 export const toTradeRow = (v) => ({
+  symbol: MARKETS[v.symbol] ? v.symbol : 'XAUUSD',
   direction: v.direction,
   opened_at: v.openedAt,
   closed_at: v.closedAt,

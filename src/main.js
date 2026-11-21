@@ -99,6 +99,9 @@ readAuthError();
 initBackend();
 startRouter(routeIds, render);
 
+// Picking XAUUSD or BTCUSD redraws the page for that market.
+window.addEventListener('tt-market', () => render(currentRoute, { keepScroll: true }));
+
 // Signing in or out changes what pages show, so draw the current page again.
 session.subscribe(() => {
   clearSignal(); // a different user or plan sees a different amount of the signal

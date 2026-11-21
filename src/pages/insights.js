@@ -127,11 +127,12 @@ export function historyPage() {
           ${shown.length ? `
           <div class="table-scroll">
             <table class="data-table">
-              <thead><tr><th scope="col">Closed</th><th scope="col">Side</th><th scope="col" class="num">Lots</th><th scope="col" class="num">Entry</th><th scope="col" class="num">Exit</th><th scope="col" class="num">Net</th><th scope="col" class="num">R</th><th scope="col">Session</th><th scope="col">Plan</th></tr></thead>
+              <thead><tr><th scope="col">Closed</th><th scope="col">Market</th><th scope="col">Side</th><th scope="col" class="num">Lots</th><th scope="col" class="num">Entry</th><th scope="col" class="num">Exit</th><th scope="col" class="num">Net</th><th scope="col" class="num">R</th><th scope="col">Session</th><th scope="col">Plan</th></tr></thead>
               <tbody>
                 ${shown.map(({ t, m }) => `
                   <tr>
                     <td>${dateTime(t.closedAt)}</td>
+                    <td>${escapeHtml(t.symbol || 'XAUUSD')}</td>
                     <td class="dir-text-${t.direction}">${t.direction === 'buy' ? 'Buy' : 'Sell'}</td>
                     <td class="num">${t.lots.toFixed(2)}</td>
                     <td class="num">${price(t.entryPrice)}</td>
@@ -191,6 +192,7 @@ export function analyticsPage() {
         </dl>
         <div class="insight-grid">
           ${breakdownTable('By session opened in', breakdown(trades, (t) => sessionLabel(t)))}
+          ${breakdownTable('By market', breakdown(trades, (t) => t.symbol || 'XAUUSD'))}
           ${breakdownTable('By direction', breakdown(trades, (t) => (t.direction === 'buy' ? 'Buy' : 'Sell')))}
           ${breakdownTable('Plan followed or not', breakdown(trades, (t) => (tradeMetrics(t, minRR).followedPlan ? 'Plan followed' : 'Off plan')))}
         </div>`;

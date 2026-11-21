@@ -1,8 +1,25 @@
-// GET /api/quote — the current XAUUSD quote.
+// GET /api/quote?symbol=XAUUSD|BTCUSD — the current quote and day range.
 // Runs on the server so the Twelve Data key never reaches the browser.
 // Responses are cached at Vercel's edge to stay inside the provider's limits.
 
-import { normalizeQuote } from './_lib/quote.js';
+import { normalizeQuote, normalizeKrakenTicker, normalizeCoinbaseStats } from './_lib/quote.js';
+
+const UA = { 'User-Agent': 'TradeTactix/1.0 (+https://tradetactix-exchange.vercel.app)', Accept: 'application/json' };
+
+/** Bitcoin: Kraken first, Coinbase if Kraken cannot be read. */
+async function bitcoinQuote() {
+  try {
+    const r = await fetch('https://api.kraken.com/0/public/Ticker?pair=XBTUSD', { headers: UA, signal: AbortSignal.timeout(6000) });
+    const res = normalizeKrakenTicker(await r.json());
+    if (res.ok) return res;
+  } catch { /* try the backup */ }
+  try {
+    const r = await fetch('https://api.exchange.coinbase.com/products/BTC-USD/stats', { headers: UA, signal: AbortSignal.timeout(6000) });
+    return normalizeCoinbaseStats(await r.json());
+  } catch {
+    return { ok: false, status: 502, error: 'unreachable' };
+  }
+}
 
 const PROVIDER_URL = 'https://api.twelvedata.com/quote';
 const send = (res, status, body, cacheSeconds) => {
@@ -16,6 +33,14 @@ export default async function handler(req, res) {
     res.setHeader('Allow', 'GET');
     return send(res, 405, { error: 'method_not_allowed' }, 60);
   }
+  const symbol = String(req.query?.symbol || 'XAUUSD').toUpperCase();
+  if (symbol === 'BTCUSD') {
+    const result = await bitcoinQuote();
+    if (!result.ok) console.error('bitcoin quote failed', result.error);
+    return result.ok ? send(res, 200, result.quote, 60) : send(res, result.status, { error: result.error }, 30);
+  }
+  if (symbol !== 'XAUUSD') return send(res, 400, { error: 'bad_symbol' }, 300);
+
   const key = process.env.TWELVEDATA_API_KEY;
   if (!key) return send(res, 503, { error: 'not_configured' }, 30);
 

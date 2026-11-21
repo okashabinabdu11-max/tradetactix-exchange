@@ -10,6 +10,7 @@ import { marketSwitchMarkup, bindMarketSwitch } from '../ui/marketSwitch.js';
 import { verdictMarkup } from './signalView.js';
 import { listTrades } from '../services/backend.js';
 import { localDateKey } from '../lib/journal.js';
+import { marketOf } from '../lib/markets.js';
 
 function databaseStatus() {
   if (!isSupabaseConfigured) return { on: false, text: 'Not set up' };
@@ -46,7 +47,7 @@ function priceMarkup({ status, quote, message }) {
   const change = quote.change;
   const sign = change > 0 ? '+' : change < 0 ? '−' : '';
   const changeText = change === null ? empty : `${sign}${price(Math.abs(change))}${quote.percentChange === null ? '' : ` <small>(${sign}${Math.abs(quote.percentChange).toFixed(2)}%)</small>`}`;
-  const range = quote.low !== null && quote.high !== null ? `Day range ${price(quote.low)} to ${price(quote.high)}. ` : '';
+  const range = quote.low !== null && quote.high !== null ? `${quote.rangeLabel || 'Day range'} ${price(quote.low)} to ${price(quote.high)}. ` : '';
   // The provider's own timestamp marks the start of the trading day, so show when we fetched instead.
   const stamp = new Date(quote.fetchedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   const closed = quote.marketOpen === false ? 'Market closed: this is the last price. ' : '';
@@ -61,17 +62,21 @@ function priceMarkup({ status, quote, message }) {
 function pricePanel() {
   return `
     <section class="panel price" aria-labelledby="price-title">
-      <h2 id="price-title" class="panel-title">XAUUSD price</h2>
+      <h2 id="price-title" class="panel-title">${selectedMarket()} price</h2>
       <div id="price-live" aria-live="polite">${priceMarkup(marketState().status === 'ok' ? marketState() : { status: 'idle' })}</div>
       <a class="text-link" href="#/chart">Open the live TradingView chart</a>
     </section>`;
 }
 
 function sessionsMarkup() {
-  const status = sessionStatus(new Date());
+  const m = marketOf(selectedMarket());
+  const status = sessionStatus(new Date(), { alwaysOpen: m.alwaysOpen });
+  const weekend = m.alwaysOpen && !status.sessions.some((s) => s.open) && [0, 6].includes(new Date().getUTCDay());
   const headline = !status.marketOpen
     ? 'Gold market is closed'
-    : status.overlap
+    : weekend
+      ? 'Weekend: bitcoin trades, sessions are quiet'
+      : status.overlap
       ? `${status.overlap} overlap`
       : status.sessions.some((s) => s.open)
         ? `${status.sessions.find((s) => s.open).name} session`
@@ -94,7 +99,9 @@ function sessionsPanel() {
     <section class="panel" aria-labelledby="sessions-title">
       <h2 id="sessions-title" class="panel-title">Trading sessions</h2>
       <div id="sessions-live">${sessionsMarkup()}</div>
-      <p class="panel-note">From your device clock, using typical session hours. Exness's exact hours come from MT5 in Stage ${STAGE_OF.mt5}.</p>
+      <p class="panel-note">${marketOf(selectedMarket()).alwaysOpen
+        ? 'Bitcoin trades 24 hours a day, 7 days a week. The sessions show when most traders are active, which is when bitcoin usually moves most. From your device clock.'
+        : `From your device clock, using typical session hours. Exness's exact hours come from MT5 in Stage ${STAGE_OF.mt5}.`}</p>
     </section>`;
 }
 
@@ -184,7 +191,7 @@ export function dashboardPage() {
         if (alive && signal.symbol === selectedMarket()) verdictBox.innerHTML = verdictMarkup(signal);
       };
       refreshSignal();
-      bindMarketSwitch(root, () => { verdictBox.innerHTML = verdictMarkup(signalState()); refreshSignal(); });
+      bindMarketSwitch(root);
       const signalTimer = setInterval(() => { if (!document.hidden) refreshSignal(); }, 300000);
       const priceTimer = setInterval(() => { if (!document.hidden) refreshPrice(); }, 300000);
       // A real count from the user's own journal; it stays empty when signed out.

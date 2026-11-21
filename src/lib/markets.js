@@ -9,11 +9,11 @@
 export const MARKETS = Object.freeze({
   XAUUSD: Object.freeze({
     symbol: 'XAUUSD', name: 'Gold', long: 'Gold vs US dollar',
-    alwaysOpen: false, maxStopUsd: 9, pip: 0.1, unit: 'pips',
+    alwaysOpen: false, maxStopUsd: 9, pip: 0.1, unit: 'pips', contract: 100, // oz per 1.00 lot
   }),
   BTCUSD: Object.freeze({
     symbol: 'BTCUSD', name: 'Bitcoin', long: 'Bitcoin vs US dollar',
-    alwaysOpen: true, maxStopUsd: Infinity, pip: 1, unit: 'usd',
+    alwaysOpen: true, maxStopUsd: Infinity, pip: 1, unit: 'usd', contract: 1, // BTC per 1.00 lot
   }),
 });
 

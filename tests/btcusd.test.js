@@ -159,3 +159,57 @@ test('weekly results list bitcoin separately; gold-only weeks look as before', (
   const d = dailyMessage({ pending_requests: 0, active_members: 1, telegram_members: 1, new_accounts: 0, signals_sent: 2 }, gold, [], Date.parse('2026-11-20T18:05:00Z'), { wins: 1, losses: 0, breakeven: 0, pips: 900 });
   assert.match(d, /BTCUSD \(24h\): ✅ 1 · ❌ 0 · ⚪ 0 · \+\$900/);
 });
+
+// ---------------------------------------------------------------- price, sessions, journal
+import { normalizeKrakenTicker, normalizeCoinbaseStats } from '../api/_lib/quote.js';
+import quoteHandler from '../api/quote.js';
+import { sessionStatus } from '../src/lib/sessions.js';
+import { tradeMetrics, validateTrade, fromTradeRow, toTradeRow } from '../src/lib/journal.js';
+
+const ticker = { error: [], result: { XXBTZUSD: { a: ['98010.0', '1', '1.0'], b: ['98000.0', '1', '1.0'], c: ['98005.5', '0.01'], v: ['900', '2000'], p: ['97800', '97700'], t: [1, 2], l: ['96500.0', '96100.0'], h: ['98400.0', '99000.0'], o: '97000.0' } } };
+
+test('bitcoin quote: Kraken day range (UTC day), Coinbase 24-hour range', () => {
+  const k = normalizeKrakenTicker(ticker, 0);
+  assert.equal(k.ok, true);
+  assert.deepEqual([k.quote.price, k.quote.low, k.quote.high, k.quote.open], [98005.5, 96500, 98400, 97000]);
+  assert.ok(Math.abs(k.quote.change - 1005.5) < 1e-9 && k.quote.marketOpen === true);
+  assert.match(k.quote.rangeLabel, /Day range/);
+  const c = normalizeCoinbaseStats({ open: '97000', high: '99000', low: '96000', last: '98000', volume: '1' }, 0);
+  assert.deepEqual([c.ok, c.quote.price, c.quote.rangeLabel], [true, 98000, '24-hour range']);
+  assert.equal(normalizeKrakenTicker({ error: ['EGeneral:Internal error'], result: {} }).ok, false);
+});
+
+test('quote handler: bitcoin needs no Twelve Data key and is cached for a minute', async () => {
+  const saved = process.env.TWELVEDATA_API_KEY;
+  delete process.env.TWELVEDATA_API_KEY;
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ json: async () => ticker });
+  const res = { headers: {}, setHeader(n, v) { this.headers[n] = v; }, status(c) { this.code = c; return this; }, send(b) { this.body = JSON.parse(b); } };
+  await quoteHandler({ method: 'GET', query: { symbol: 'BTCUSD' } }, res);
+  globalThis.fetch = realFetch;
+  if (saved !== undefined) process.env.TWELVEDATA_API_KEY = saved;
+  assert.equal(res.code, 200);
+  assert.equal(res.body.symbol, 'BTCUSD');
+  assert.match(res.headers['Cache-Control'], /s-maxage=60/);
+});
+
+test('sessions: bitcoin is open at the weekend, gold is closed', () => {
+  const sat = new Date(Date.UTC(2026, 10, 21, 12));
+  assert.equal(sessionStatus(sat).marketOpen, false);
+  assert.equal(sessionStatus(sat, { alwaysOpen: true }).marketOpen, true);
+  const wed = new Date(Date.UTC(2026, 10, 18, 14));
+  assert.ok(sessionStatus(wed, { alwaysOpen: true }).sessions.some((s) => s.open), 'London/New York open on a weekday');
+});
+
+test('journal: bitcoin trades use 1 BTC per lot; gold 100 oz per lot', () => {
+  const base = { direction: 'buy', openedAt: '2026-11-21T08:00:00Z', closedAt: '2026-11-21T10:00:00Z', lots: 0.01, level4h: true, liquidity1h: true, retest15m: true };
+  const btc = tradeMetrics({ ...base, symbol: 'BTCUSD', entryPrice: 98000, stopLoss: 97600, takeProfit: 99800, exitPrice: 99800 });
+  assert.ok(Math.abs(btc.pnl - 18) < 1e-9, `btc pnl ${btc.pnl}`);
+  const gold = tradeMetrics({ ...base, entryPrice: 4000, stopLoss: 3995, takeProfit: 4015, exitPrice: 4015 });
+  assert.ok(Math.abs(gold.pnl - 15) < 1e-9);
+  const v = validateTrade({ ...base, symbol: 'BTCUSD', entryPrice: '98000', stopLoss: '97600', takeProfit: '', exitPrice: '', closedAt: '', lots: '0.05' });
+  assert.equal(v.ok, true, v.errors.join(' '));
+  assert.equal(toTradeRow(v.values).symbol, 'BTCUSD');
+  assert.equal(fromTradeRow({ ...toTradeRow(v.values), id: 'x' }).symbol, 'BTCUSD');
+  assert.equal(validateTrade({ ...base, symbol: 'EURUSD', entryPrice: '1', stopLoss: '0.5', lots: '1', exitPrice: '', closedAt: '' }).values.symbol, 'XAUUSD');
+});

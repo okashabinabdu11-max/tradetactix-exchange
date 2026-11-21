@@ -13,8 +13,8 @@ export function marketSwitchMarkup() {
     </div>`;
 }
 
-/** Calls `onChange(symbol)` when another market is picked. */
-export function bindMarketSwitch(root, onChange) {
+/** Picking another market saves it and redraws the page (price, sessions, signal, calendar follow it). */
+export function bindMarketSwitch(root, onChange = null) {
   const box = root.querySelector('.market-switch');
   if (!box) return;
   box.addEventListener('click', (e) => {
@@ -23,6 +23,7 @@ export function bindMarketSwitch(root, onChange) {
     const sym = btn.dataset.market;
     setMarket(sym);
     for (const b of box.querySelectorAll('[data-market]')) b.setAttribute('aria-pressed', String(b === btn));
-    onChange(sym);
+    if (onChange) onChange(sym);
+    else window.dispatchEvent(new CustomEvent('tt-market', { detail: sym }));
   });
 }

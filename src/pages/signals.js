@@ -7,7 +7,7 @@ import { getAccessToken } from '../services/backend.js';
 import { STAGE_OF } from '../data/plan.js';
 import { verdictMarkup, levelsMarkup } from './signalView.js';
 import { loadTradingViewWidget } from '../ui/tvWidget.js';
-import { NEWS_CONFIG } from '../data/widgets.js';
+import { NEWS_CONFIG, BTC_NEWS_CONFIG } from '../data/widgets.js';
 
 const REFRESH_MS = 5 * 60e3;
 const myMinimum = () => (session.get().user ? session.get().riskSettings?.minRewardToRisk : null) ?? MIN_REWARD_TO_RISK;
@@ -27,7 +27,7 @@ function livePage({ title, intro, body }) {
         if (alive && signal.symbol === selectedMarket()) box.innerHTML = body(signal);
       };
       refresh();
-      bindMarketSwitch(root, () => { box.innerHTML = body(signalState()); refresh(); });
+      bindMarketSwitch(root);
       const timer = setInterval(() => { if (!document.hidden) refresh(); }, REFRESH_MS);
       return () => { alive = false; clearInterval(timer); };
     },
@@ -134,29 +134,33 @@ async function loadOutlook() {
 }
 
 export function analysisPage() {
+  const btc = selectedMarket() === 'BTCUSD';
+  const outlookPanel = btc ? '' : `      <section class="panel fundamentals" aria-labelledby="outlook-h">
+        <h2 id="outlook-h" class="panel-title">News outlook</h2>
+        <div id="news-outlook"><p class="result-empty">Loading the outlook…</p></div>
+        <p class="panel-note">For each high-impact US release in the next 24 hours: the expected effect on gold, why, and what a higher or lower number usually does. Members get it on Telegram in the hour before. It is an expectation, not a promise: news can move gold fast both ways.</p>
+      </section>
+`;
   return {
     title: 'Analysis',
     html: `
       <header class="page-head">
         <h1>Analysis</h1>
-        <p>The technical picture the signal engine is reading, then the scheduled events and news that move gold.</p>
+        <p>The technical picture the signal engine is reading, then the scheduled events and news that move ${btc ? 'bitcoin' : 'gold'}.</p>
       </header>
       ${marketSwitchMarkup()}
       <div id="signal-view">${levelsBody(signalState())}</div>
-${analysisOpen() ? `      <section class="panel fundamentals" aria-labelledby="outlook-h">
-        <h2 id="outlook-h" class="panel-title">News outlook</h2>
-        <div id="news-outlook"><p class="result-empty">Loading the outlook…</p></div>
-        <p class="panel-note">For each high-impact US release in the next 24 hours: the expected effect on gold, why, and what a higher or lower number usually does. Members get it on Telegram in the hour before. It is an expectation, not a promise: news can move gold fast both ways.</p>
-      </section>
-      <section class="panel fundamentals" aria-labelledby="cal-h">
+${analysisOpen() ? `${outlookPanel}      <section class="panel fundamentals" aria-labelledby="cal-h">
         <h2 id="cal-h" class="panel-title">US economic calendar</h2>
         <div id="us-calendar"><p class="result-empty">Loading the calendar…</p></div>
-        <p class="panel-note">Medium and high impact United States releases this week, in Ethiopia time. It is the same list the bot uses for news outlooks and the news safety pause. Gold often moves sharply around inflation, jobs and Federal Reserve announcements.</p>
+        <p class="panel-note">${btc
+          ? 'Medium and high impact United States releases this week, in Ethiopia time. Bitcoin often moves sharply around inflation, jobs and Federal Reserve announcements too. No new bitcoin signals are sent 30 minutes before and after high-impact releases.'
+          : 'Medium and high impact United States releases this week, in Ethiopia time. It is the same list the bot uses for news outlooks and the news safety pause. Gold often moves sharply around inflation, jobs and Federal Reserve announcements.'}</p>
       </section>
       <section class="panel fundamentals" aria-labelledby="news-h">
-        <h2 id="news-h" class="panel-title">Gold news</h2>
+        <h2 id="news-h" class="panel-title">${btc ? 'Bitcoin news' : 'Gold news'}</h2>
         <div class="widget-frame widget-frame-tall" id="tv-news"></div>
-        <p class="panel-note">Headlines for XAUUSD from TradingView. The signal engine itself reads price only; the news outlook above is a separate analysis.</p>
+        <p class="panel-note">Headlines for ${btc ? 'BTCUSD' : 'XAUUSD'} from TradingView. The signal engine itself reads price only${btc ? '' : '; the news outlook above is a separate analysis'}.</p>
       </section>` : ''}`,
     mount(root) {
       const box = root.querySelector('#signal-view');
@@ -166,7 +170,7 @@ ${analysisOpen() ? `      <section class="panel fundamentals" aria-labelledby="o
         if (alive && signal.symbol === selectedMarket()) box.innerHTML = levelsBody(signal);
       };
       refresh();
-      bindMarketSwitch(root, () => { box.innerHTML = levelsBody(signalState()); refresh(); });
+      bindMarketSwitch(root);
       const timer = setInterval(() => { if (!document.hidden) refresh(); }, REFRESH_MS);
       // The widgets are loaded once and left alone; only the levels above refresh.
       const outlook = root.querySelector('#news-outlook');
@@ -177,8 +181,11 @@ ${analysisOpen() ? `      <section class="panel fundamentals" aria-labelledby="o
           outlook.innerHTML = outlookMarkup(items);
           if (cal) cal.innerHTML = calendarListMarkup(events, items || []);
         });
+      } else if (cal) {
+        // Bitcoin: the same calendar, without the gold outlook's leans.
+        loadCalendar().then((events) => { if (alive) cal.innerHTML = calendarListMarkup(events, []); });
       }
-      if (root.querySelector('#tv-news')) loadTradingViewWidget(root.querySelector('#tv-news'), 'embed-widget-timeline.js', NEWS_CONFIG, 'The news feed could not load.');
+      if (root.querySelector('#tv-news')) loadTradingViewWidget(root.querySelector('#tv-news'), 'embed-widget-timeline.js', btc ? BTC_NEWS_CONFIG : NEWS_CONFIG, 'The news feed could not load.');
       return () => { alive = false; clearInterval(timer); };
     },
   };

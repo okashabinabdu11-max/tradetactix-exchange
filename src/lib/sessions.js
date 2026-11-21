@@ -48,8 +48,9 @@ export function isGoldMarketOpen(date) {
   return open;
 }
 
-export function sessionStatus(date = new Date()) {
-  const marketOpen = isGoldMarketOpen(date);
+/** `alwaysOpen` for markets that never close (bitcoin): the sessions still show where the volume is. */
+export function sessionStatus(date = new Date(), { alwaysOpen = false } = {}) {
+  const marketOpen = alwaysOpen || isGoldMarketOpen(date);
   const sessions = SESSIONS.map((s) => {
     const { weekday, hour, minute } = localParts(date, s.timeZone);
     const inHours = weekday >= 1 && weekday <= 5 && hour >= s.openHour && hour < s.closeHour;
